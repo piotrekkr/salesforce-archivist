@@ -1,0 +1,14 @@
+data_dir: /mnt/disks/storage/archivist-data
+max_api_usage_percent: 50
+auth:
+  instance_url: https://login.salesforce.com/
+  username: test
+  consumer_key: abc
+  private_key: !!binary |
+    dGVzdAo=
+
+objects:
+  User:
+    modified_date_gt: 2017-01-01T00:00:00Z
+    modified_date_lt: 2023-08-01T00:00:00Z
+    dir_name_field: LinkedEntity.Username

@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+simple-salesforce = "*"
+python-dotenv = "*"
+pyyaml = "*"
+click = "*"
+schema = "*"
+python-dateutil = "*"
+
+[dev-packages]
+black = "*"
+isort = "*"
+flake8 = "*"
+mypy = "*"
+tomli = "*"
+
+[requires]
+python_version = "3.10"
+python_full_version = "3.10.12"

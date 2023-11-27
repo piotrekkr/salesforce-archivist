@@ -1,0 +1,207 @@
+import re
+
+import csv
+import os.path
+
+from salesforce_archivist.document_link import ContentDocumentLink
+
+
+class ContentVersion:
+    def __init__(
+        self, id: str, document_id: str, title: str, extension: str, checksum: str
+    ):
+        self._id = id
+        self._document_id = document_id
+        self._title = title
+        self._extension = extension
+        self._checksum = checksum
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def document_id(self):
+        return self._document_id
+
+    @property
+    def title(self):
+        return self._title
+
+    @property
+    def extension(self):
+        return self._extension
+
+    @property
+    def checksum(self):
+        return self._checksum
+
+    @property
+    def filename(self):
+        return "{id}_{title}.{extension}".format(
+            id=self.id,
+            title=re.sub(r'[/\\?%*:|"<>]', "-", self.title),
+            extension=self.extension,
+        )
+
+    def __hash__(self):
+        return hash(
+            (self.id, self.document_id, self.checksum, self.title, self.extension)
+        )
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (
+            self.id,
+            self.document_id,
+            self.checksum,
+            self.title,
+            self.extension,
+        ) == (other.id, other.document_id, other.checksum, other.title, other.extension)
+
+
+class ContentVersionList:
+    def __init__(self, data_dir: str):
+        self._data: dict[str, ContentVersion] = {}
+        self._path = os.path.join(data_dir, "content_versions.csv")
+        self._doc_versions_map: dict[str, set[str]] = {}
+        if os.path.exists(self._path):
+            self._load_data()
+
+    def _load_data(self):
+        with open(self._path) as file:
+            reader = csv.reader(file)
+            next(reader)
+            for row in reader:
+                version = ContentVersion(
+                    id=row[0],
+                    document_id=row[1],
+                    checksum=row[2],
+                    title=row[3],
+                    extension=row[4],
+                )
+                self.add_version(version)
+
+    def save(self):
+        with open(self._path, "w") as file:
+            writer = csv.writer(file)
+            writer.writerow(
+                ["Id", "ContentDocumentId", "Checksum", "Title", "Extension"]
+            )
+            for version_id, version in self._data.items():
+                writer.writerow(
+                    [
+                        version.id,
+                        version.document_id,
+                        version.checksum,
+                        version.title,
+                        version.extension,
+                    ]
+                )
+
+    def add_version(self, version: ContentVersion):
+        if version.document_id not in self._doc_versions_map:
+            self._doc_versions_map[version.document_id] = set()
+        self._doc_versions_map[version.document_id].add(version.id)
+        self._data[version.id] = version
+
+    def get_content_versions_for_link(
+        self, link: ContentDocumentLink
+    ) -> set[ContentVersion]:
+        version_set = set()
+        if link.content_document_id in self._doc_versions_map:
+            for version_id in self._doc_versions_map[link.content_document_id]:
+                version_set.add(self._data[version_id])
+        return version_set
+
+    @property
+    def path(self):
+        return self._path
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+
+class DownloadedContentVersion:
+    def __init__(self, id: str, document_id: str, path: str):
+        self._id = id
+        self._document_id = document_id
+        self._path = path
+
+    @property
+    def id(self):
+        return self._id
+
+    @property
+    def document_id(self):
+        return self._document_id
+
+    @property
+    def path(self):
+        return self._path
+
+    def __hash__(self):
+        return hash((self.id, self.document_id, self.path))
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (
+            self.id,
+            self.document_id,
+            self.path,
+        ) == (other.id, other.document_id, other.path)
+
+
+class DownloadedContentVersionList:
+    def __init__(self, data_dir: str):
+        self._data: dict[str, DownloadedContentVersion] = {}
+        self._path = os.path.join(data_dir, "downloaded_versions.csv")
+        if os.path.exists(self._path):
+            self._load_data()
+
+    def _load_data(self):
+        with open(self._path) as file:
+            reader = csv.reader(file)
+            next(reader)
+            for row in reader:
+                version = DownloadedContentVersion(
+                    id=row[0],
+                    document_id=row[1],
+                    path=row[2],
+                )
+                self.add_version(version)
+
+    def save(self):
+        with open(self._path, "w") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Id", "ContentDocumentId", "Path on disk"])
+            for version_id, version in self._data.items():
+                writer.writerow(
+                    [
+                        version.id,
+                        version.document_id,
+                        version.path,
+                    ]
+                )
+
+    def add_version(self, version: DownloadedContentVersion):
+        self._data[version.id] = version
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def is_downloaded(self, content_version: ContentVersion) -> bool:
+        return content_version.id in self._data
+
+    def get_version(
+        self, content_version: ContentVersion
+    ) -> DownloadedContentVersion | None:
+        return self._data.get(content_version.id)
