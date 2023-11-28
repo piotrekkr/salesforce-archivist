@@ -3,6 +3,7 @@ from queue import Queue
 import datetime
 import os.path
 from math import ceil
+from typing import Generator, Any
 
 import click
 from click._termui_impl import ProgressBar
@@ -18,12 +19,16 @@ from .salesforce import Salesforce
 
 
 class ArchivistObject:
-    def __init__(self, data_dir: str, obj_type: str, config: dict[str, str]):
-        self._data_dir = os.path.join(data_dir, obj_type)
-        self._obj_type = obj_type
-        self._modified_date_lt = config.get("modified_date_lt")
-        self._modified_date_gt = config.get("modified_date_gt")
-        self._dir_name_field = config["dir_name_field"]
+    def __init__(self, data_dir: str, obj_type: str, config: dict[str, Any]):
+        self._data_dir: str = os.path.join(data_dir, obj_type)
+        self._obj_type: str = obj_type
+        self._modified_date_lt: datetime.datetime | None = config.get(
+            "modified_date_lt"
+        )
+        self._modified_date_gt: datetime.datetime | None = config.get(
+            "modified_date_gt"
+        )
+        self._dir_name_field: str = config["dir_name_field"]
 
     @property
     def data_dir(self) -> str:
@@ -34,11 +39,11 @@ class ArchivistObject:
         return self._obj_type
 
     @property
-    def modified_date_lt(self) -> str | None:
+    def modified_date_lt(self) -> datetime.datetime | None:
         return self._modified_date_lt
 
     @property
-    def modified_date_gt(self) -> str | None:
+    def modified_date_gt(self) -> datetime.datetime | None:
         return self._modified_date_gt
 
     @property
@@ -47,7 +52,7 @@ class ArchivistObject:
 
 
 class ArchivistAuth:
-    def __init__(self, config: dict[str, str]):
+    def __init__(self, config: dict[str, Any]):
         self._login_url = config["instance_url"]
         self._username = config["username"]
         self._consumer_key = config["consumer_key"]
@@ -121,7 +126,7 @@ class ArchivistConfig:
         return self._auth
 
     @property
-    def objects(self) -> list[ArchivistObject]:
+    def objects(self) -> Generator:
         yield from self._objects
 
 
@@ -208,18 +213,19 @@ class Archivist:
                 ]
                 list_size = len(doc_id_list)
                 all_batches = ceil(list_size / batch_size)
+                progressbar: ProgressBar
                 with click.progressbar(
                     length=all_batches,
                     label="Fetching content versions",
                     show_eta=False,
-                ) as progress:
+                ) as progressbar:
                     self._load_content_version_batches(
                         doc_id_list=doc_id_list,
                         batch_size=batch_size,
                         all_batches=all_batches,
                         salesforce=salesforce,
                         content_version_list=content_version_list,
-                        progressbar=progress,
+                        progressbar=progressbar,
                     )
             finally:
                 content_version_list.save()
@@ -236,7 +242,7 @@ class Archivist:
         all_batches: int,
         salesforce: Salesforce,
         content_version_list: ContentVersionList,
-        progressbar: ProgressBar = None,
+        progressbar: ProgressBar | None = None,
     ):
         for batch in range(1, all_batches + 1):
             start = (batch - 1) * batch_size
@@ -258,7 +264,7 @@ class Archivist:
         downloaded_versions_list: DownloadedContentVersionList,
     ):
         os.makedirs(os.path.join(archivist_obj.data_dir, "files"), exist_ok=True)
-        queue = Queue()
+        queue: Queue = Queue()
 
         for link in document_link_list.get_links().values():
             for version in content_version_list.get_content_versions_for_link(link):
@@ -269,7 +275,7 @@ class Archivist:
                     version.filename,
                 )
                 queue.put((version, path))
-
+        progressbar: ProgressBar
         with click.progressbar(
             length=queue.qsize(),
             label="",

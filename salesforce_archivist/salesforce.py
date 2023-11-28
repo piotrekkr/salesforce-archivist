@@ -27,7 +27,7 @@ class Salesforce:
         self,
         data_dir: str,
         sf_client: SalesforceClient,
-        max_api_usage_percent: float = None,
+        max_api_usage_percent: float | None = None,
     ):
         self._data_dir = data_dir
         self._sf_client = sf_client
@@ -44,9 +44,9 @@ class Salesforce:
     @staticmethod
     def _get_content_document_list_query(
         obj_type: str,
-        modified_date_lt: datetime.datetime = None,
-        modified_date_gt: datetime.datetime = None,
-        dir_name_field: str = None,
+        modified_date_lt: datetime.datetime | None = None,
+        modified_date_gt: datetime.datetime | None = None,
+        dir_name_field: str | None = None,
     ) -> str:
         select_list = ["LinkedEntityId", "ContentDocumentId"]
         if dir_name_field is not None and dir_name_field not in select_list:
@@ -74,10 +74,10 @@ class Salesforce:
         self,
         document_link_list: ContentDocumentLinkList,
         obj_type: str,
-        modified_date_lt: datetime.datetime = None,
-        modified_date_gt: datetime.datetime = None,
+        modified_date_lt: datetime.datetime | None = None,
+        modified_date_gt: datetime.datetime | None = None,
         max_records: int = 50000,
-        dir_name_field: str = None,
+        dir_name_field: str | None = None,
     ):
         tmp_dir = self._init_tmp_dir()
         query = self._get_content_document_list_query(
@@ -140,8 +140,8 @@ class Salesforce:
         worker_num: int,
         queue: Queue,
         downloaded_versions_list: DownloadedContentVersionList,
-        max_api_usage_percent: float = None,
-        progressbar: ProgressBar = None,
+        max_api_usage_percent: float | None = None,
+        progressbar: ProgressBar | None = None,
     ):
         while True:
             try:
@@ -228,7 +228,7 @@ class Salesforce:
                 if progressbar is not None:
                     progressbar.update(1)
 
-    def _wait_if_usage_limit_hit(self, max_api_usage_percent: float = None):
+    def _wait_if_usage_limit_hit(self, max_api_usage_percent: float | None = None):
         if max_api_usage_percent is not None:
             usage = self._sf_client.api_usage["api-usage"]
             usage = {

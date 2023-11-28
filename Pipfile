@@ -10,6 +10,7 @@ pyyaml = "*"
 click = "*"
 schema = "*"
 python-dateutil = "*"
+types-pyyaml = "*"
 
 [dev-packages]
 black = "*"
