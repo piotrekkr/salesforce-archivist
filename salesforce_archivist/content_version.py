@@ -44,22 +44,6 @@ class ContentVersion:
             extension=self.extension,
         )
 
-    def __hash__(self):
-        return hash(
-            (self.id, self.document_id, self.checksum, self.title, self.extension)
-        )
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return (
-            self.id,
-            self.document_id,
-            self.checksum,
-            self.title,
-            self.extension,
-        ) == (other.id, other.document_id, other.checksum, other.title, other.extension)
-
 
 class ContentVersionList:
     def __init__(self, data_dir: str):
@@ -119,12 +103,6 @@ class ContentVersionList:
     def path(self):
         return self._path
 
-    def __iter__(self):
-        return iter(self._data)
-
-    def __len__(self):
-        return len(self._data)
-
 
 class DownloadedContentVersion:
     def __init__(self, id: str, document_id: str, path: str):
@@ -143,18 +121,6 @@ class DownloadedContentVersion:
     @property
     def path(self):
         return self._path
-
-    def __hash__(self):
-        return hash((self.id, self.document_id, self.path))
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return NotImplemented
-        return (
-            self.id,
-            self.document_id,
-            self.path,
-        ) == (other.id, other.document_id, other.path)
 
 
 class DownloadedContentVersionList:
@@ -192,12 +158,6 @@ class DownloadedContentVersionList:
     def add_version(self, version: DownloadedContentVersion):
         self._data[version.id] = version
 
-    def __iter__(self):
-        return iter(self._data)
-
-    def __len__(self):
-        return len(self._data)
-
     def is_downloaded(self, content_version: ContentVersion) -> bool:
         return content_version.id in self._data
 
@@ -205,3 +165,54 @@ class DownloadedContentVersionList:
         self, content_version: ContentVersion
     ) -> DownloadedContentVersion | None:
         return self._data.get(content_version.id)
+
+
+class ValidatedContentVersion:
+    def __init__(self, path: str, checksum: str):
+        self._path = path
+        self._checksum = checksum
+
+    @property
+    def path(self):
+        return self._path
+
+    @property
+    def checksum(self):
+        return self._checksum
+
+
+class ValidatedContentVersionList:
+    def __init__(self, data_dir: str):
+        self._data: dict[str, ValidatedContentVersion] = {}
+        self._path = os.path.join(data_dir, "validated_versions.csv")
+        if os.path.exists(self._path):
+            self._load_data()
+
+    def _load_data(self):
+        with open(self._path) as file:
+            reader = csv.reader(file)
+            next(reader)
+            for row in reader:
+                version = ValidatedContentVersion(checksum=row[0], path=row[1])
+                self.add_version(version)
+
+    def save(self):
+        with open(self._path, "w") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Checksum", "Path"])
+            for version_id, version in self._data.items():
+                writer.writerow(
+                    [
+                        version.checksum,
+                        version.path,
+                    ]
+                )
+
+    def add_version(self, version: ValidatedContentVersion):
+        self._data[version.path] = version
+
+    def is_validated(self, path: str) -> bool:
+        return path in self._data
+
+    def get_version(self, path: str) -> ValidatedContentVersion | None:
+        return self._data.get(path)

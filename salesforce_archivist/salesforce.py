@@ -160,9 +160,9 @@ class Salesforce:
                             path=download_path,
                         )
                         downloaded_versions_list.add_version(downloaded_version)
-                    print(
-                        "[NOTICE] Content version {id} already downloaded. Skipping".format(
-                            id=version.id,
+                    click.echo(
+                        "[W:{worker}] [NOTICE] Content version {id} already downloaded. Skipping".format(
+                            id=version.id, worker=worker_num
                         )
                     )
                     continue
@@ -171,11 +171,12 @@ class Salesforce:
                     downloaded_version.path
                 ):
                     if downloaded_version.path != download_path:
-                        print(
-                            "[NOTICE] Copying already downloaded content version {id} from {src} to {dst}".format(
+                        click.echo(
+                            "[W:{worker}] [NOTICE] Copying already downloaded content version {id} from {src} to {dst}".format(
                                 id=version.id,
                                 src=downloaded_version.path,
                                 dst=download_path,
+                                worker=worker_num,
                             )
                         )
                         os.makedirs(os.path.dirname(download_path), exist_ok=True)

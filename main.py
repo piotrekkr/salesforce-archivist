@@ -16,13 +16,14 @@ def download(ctx):
     config: ArchivistConfig = ctx.obj["config"]
     archivist = Archivist(config)
     archivist.download()
-    click.echo("Download finished!")
 
 
 @cli.command()
 @click.pass_context
 def validate(ctx):
-    click.echo("Validate")
+    config: ArchivistConfig = ctx.obj["config"]
+    archivist = Archivist(config)
+    archivist.validate()
 
 
 if __name__ == "__main__":
