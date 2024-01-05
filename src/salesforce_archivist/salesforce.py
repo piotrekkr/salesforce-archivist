@@ -8,7 +8,9 @@ from click._termui_impl import ProgressBar
 from time import sleep
 
 import click
-from simple_salesforce import Salesforce as SalesforceClient
+from requests import Response
+from simple_salesforce import Salesforce as SimpleSFClient
+from simple_salesforce.api import Usage
 
 from salesforce_archivist.content_version import (
     ContentVersionList,
@@ -22,15 +24,59 @@ from salesforce_archivist.document_link import (
 )
 
 
+class APIUsage:
+    def __init__(self, usage: Usage):
+        self._used = usage.used
+        self._total = usage.total
+        self._percent = round(usage.used / usage.total * 100, 2)
+
+    @property
+    def used(self):
+        return self._used
+
+    @property
+    def total(self):
+        return self._total
+
+    @property
+    def percent(self):
+        return self._percent
+
+
+class Client:
+    def __init__(self, sf_client: SimpleSFClient):
+        self._simple_sf_client = sf_client
+
+    def bulk2(self, query: str, path: str, max_records: int) -> list[dict]:
+        return self._simple_sf_client.bulk2.Account.download(
+            query=query, path=path, max_records=max_records
+        )
+
+    def download_content_version(self, version: ContentVersion) -> Response:
+        return self._simple_sf_client._call_salesforce(
+            url="{base}/sobjects/ContentVersion/{id}/VersionData".format(
+                base=self._simple_sf_client.base_url, id=version.id
+            ),
+            method="GET",
+            headers={"Content-Type": "application/octet-stream"},
+            stream=True,
+        )
+
+    def get_api_usage(self, refresh=False) -> APIUsage:
+        if refresh:
+            self._simple_sf_client.limits()
+        return APIUsage(self._simple_sf_client.api_usage["api-usage"])
+
+
 class Salesforce:
     def __init__(
         self,
         data_dir: str,
-        sf_client: SalesforceClient,
+        client: Client,
         max_api_usage_percent: float | None = None,
     ):
         self._data_dir = data_dir
-        self._sf_client = sf_client
+        self._client = client
         self._max_api_usage_percent = max_api_usage_percent
 
     def _init_tmp_dir(self) -> str:
@@ -86,7 +132,7 @@ class Salesforce:
             modified_date_lt=modified_date_lt,
             dir_name_field=dir_name_field,
         )
-        self._sf_client.bulk2.Account.download(
+        self._client.bulk2(
             query=query, path=tmp_dir, max_records=max_records
         )
 
@@ -118,9 +164,7 @@ class Salesforce:
             id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids])
         )
         tmp_dir = self._init_tmp_dir()
-        self._sf_client.bulk2.Account.download(
-            query=query, path=tmp_dir, max_records=max_records
-        )
+        self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
         for path in glob.glob(os.path.join(tmp_dir, "*.csv")):
             with open(path) as file:
                 reader = csv.reader(file)
@@ -183,14 +227,7 @@ class Salesforce:
                         shutil.copy(downloaded_version.path, download_path)
                     continue
 
-                result = self._sf_client._call_salesforce(
-                    url="{base}/sobjects/ContentVersion/{id}/VersionData".format(
-                        base=self._sf_client.base_url, id=version.id
-                    ),
-                    method="GET",
-                    headers={"Content-Type": "application/octet-stream"},
-                    stream=True,
-                )
+                result = self._client.download_content_version(version)
                 os.makedirs(os.path.dirname(download_path), exist_ok=True)
                 with open(download_path, "wb") as file:
                     for chunk in result.iter_content(chunk_size=1024):
@@ -209,7 +246,7 @@ class Salesforce:
                         worker=worker_num,
                         id=version.id,
                         path=download_path,
-                        usage=self._get_current_api_usage()["percent"],
+                        usage=self._client.get_api_usage().percent,
                     )
                 )
                 self._wait_if_usage_limit_hit(
@@ -221,7 +258,7 @@ class Salesforce:
                         id=queue_item[0].id,
                         error=e,
                         worker=worker_num,
-                        usage=self._get_current_api_usage()["percent"],
+                        usage=self._client.get_api_usage().percent,
                     )
                 )
             finally:
@@ -231,22 +268,7 @@ class Salesforce:
 
     def _wait_if_usage_limit_hit(self, max_api_usage_percent: float | None = None):
         if max_api_usage_percent is not None:
-            usage = self._sf_client.api_usage["api-usage"]
-            usage = {
-                "used": usage.used,
-                "total": usage.total,
-                "percent": round(usage.used / usage.total * 100, 2),
-            }
-            while usage["percent"] >= max_api_usage_percent:
+            usage = self._client.get_api_usage()
+            while usage.percent >= max_api_usage_percent:
                 sleep(5 * 60)
-                usage = self._get_current_api_usage(refresh=True)
-
-    def _get_current_api_usage(self, refresh: bool = False) -> dict:
-        if refresh:
-            self._sf_client.limits()
-        usage = self._sf_client.api_usage["api-usage"]
-        return {
-            "used": usage.used,
-            "total": usage.total,
-            "percent": round(usage.used / usage.total * 100, 2),
-        }
+                usage = self._client.get_api_usage(refresh=True)

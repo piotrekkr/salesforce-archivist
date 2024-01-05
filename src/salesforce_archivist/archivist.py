@@ -20,7 +20,7 @@ from .content_version import (
     ValidatedContentVersion,
 )
 from .document_link import ContentDocumentLinkList
-from .salesforce import Salesforce
+from .salesforce import Salesforce, Client
 
 
 class ArchivistObject:
@@ -153,7 +153,7 @@ class Archivist:
             os.makedirs(archivist_obj.data_dir, exist_ok=True)
             salesforce = Salesforce(
                 data_dir=archivist_obj.data_dir,
-                sf_client=self._sf_client,
+                client=Client(self._sf_client),
                 max_api_usage_percent=self._config.max_api_usage_percent,
             )
             document_link_list = self._load_document_link_list(
@@ -182,7 +182,7 @@ class Archivist:
                 os.makedirs(archivist_obj.data_dir, exist_ok=True)
                 salesforce = Salesforce(
                     data_dir=archivist_obj.data_dir,
-                    sf_client=self._sf_client,
+                    client=Client(self._sf_client),
                     max_api_usage_percent=self._config.max_api_usage_percent,
                 )
                 document_link_list = self._load_document_link_list(
