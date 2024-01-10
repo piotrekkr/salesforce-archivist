@@ -24,7 +24,7 @@ from salesforce_archivist.document_link import (
 )
 
 
-class APIUsage:
+class ApiUsage:
     def __init__(self, usage: Usage):
         self._used = usage.used
         self._total = usage.total
@@ -62,10 +62,10 @@ class Client:
             stream=True,
         )
 
-    def get_api_usage(self, refresh=False) -> APIUsage:
+    def get_api_usage(self, refresh=False) -> ApiUsage:
         if refresh:
             self._simple_sf_client.limits()
-        return APIUsage(self._simple_sf_client.api_usage["api-usage"])
+        return ApiUsage(self._simple_sf_client.api_usage["api-usage"])
 
 
 class Salesforce:
@@ -111,7 +111,7 @@ class Salesforce:
                 )
             )
         return (
-            "SELECT {fields} FROM ContentDocumentLink WHERE {where} LIMIT 100".format(
+            "SELECT {fields} FROM ContentDocumentLink WHERE {where}".format(
                 fields=", ".join(select_list), where=" AND ".join(where_list)
             )
         )
