@@ -48,20 +48,12 @@ class ContentVersion:
         if not isinstance(other, type(self)):
             return NotImplemented
         return (
-            (
-                self.id,
-                self.document_id,
-                self.title,
-                self.extension,
-                self.checksum
-            ) == (
-                other.id,
-                other.document_id,
-                other.title,
-                other.extension,
-                other.checksum
-            )
-        )
+            self.id,
+            self.document_id,
+            self.title,
+            self.extension,
+            self.checksum,
+        ) == (other.id, other.document_id, other.title, other.extension, other.checksum)
 
 
 class ContentVersionList:

@@ -110,10 +110,8 @@ class Salesforce:
                     date=modified_date_gt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
-        return (
-            "SELECT {fields} FROM ContentDocumentLink WHERE {where}".format(
-                fields=", ".join(select_list), where=" AND ".join(where_list)
-            )
+        return "SELECT {fields} FROM ContentDocumentLink WHERE {where}".format(
+            fields=", ".join(select_list), where=" AND ".join(where_list)
         )
 
     def download_content_document_link_list(
@@ -132,9 +130,7 @@ class Salesforce:
             modified_date_lt=modified_date_lt,
             dir_name_field=dir_name_field,
         )
-        self._client.bulk2(
-            query=query, path=tmp_dir, max_records=max_records
-        )
+        self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
 
         for path in glob.glob(os.path.join(tmp_dir, "*.csv")):
             with open(path) as file:
@@ -157,11 +153,17 @@ class Salesforce:
         max_records: int = 50000,
     ):
         query = (
-            'SELECT Id, ContentDocumentId, Checksum, Title, FileExtension '
-            'FROM ContentVersion '
-            'WHERE ContentDocumentId IN ({id_list})'
-        ).strip().format(
-            id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids])
+            (
+                "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension "
+                "FROM ContentVersion "
+                "WHERE ContentDocumentId IN ({id_list})"
+            )
+            .strip()
+            .format(
+                id_list=",".join(
+                    ["'{id}'".format(id=doc_id) for doc_id in document_ids]
+                )
+            )
         )
         tmp_dir = self._init_tmp_dir()
         self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)

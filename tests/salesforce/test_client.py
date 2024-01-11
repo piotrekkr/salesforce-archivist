@@ -6,16 +6,18 @@ from salesforce_archivist.salesforce import Client
 
 
 def test_bulk2():
-    expected_result = [{'test': 1}]
+    expected_result = [{"test": 1}]
     mock_sf = Mock()
     mock_sf.bulk2.Account.download.return_value = expected_result
     client = Client(sf_client=mock_sf)
-    assert client.bulk2('query', 'path', 1) == expected_result
+    assert client.bulk2("query", "path", 1) == expected_result
 
 
 def test_download_content_version():
-    content_version = ContentVersion(id='VID', document_id='DID', extension='pdf', title='Title', checksum='MD5')
-    sf_base_url = 'https://example.com'
+    content_version = ContentVersion(
+        id="VID", document_id="DID", extension="pdf", title="Title", checksum="MD5"
+    )
+    sf_base_url = "https://example.com"
     mock_sf = Mock()
     mock_sf.base_url = sf_base_url
     expected_result = Response()
@@ -30,7 +32,7 @@ def test_download_content_version():
         ),
         method="GET",
         headers={"Content-Type": "application/octet-stream"},
-        stream=True
+        stream=True,
     ).call_list()
 
     assert mock_sf.mock_calls == expected_calls
