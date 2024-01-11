@@ -44,6 +44,25 @@ class ContentVersion:
             extension=self.extension,
         )
 
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (
+            (
+                self.id,
+                self.document_id,
+                self.title,
+                self.extension,
+                self.checksum
+            ) == (
+                other.id,
+                other.document_id,
+                other.title,
+                other.extension,
+                other.checksum
+            )
+        )
+
 
 class ContentVersionList:
     def __init__(self, data_dir: str):

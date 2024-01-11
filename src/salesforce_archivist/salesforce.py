@@ -156,11 +156,11 @@ class Salesforce:
         content_version_list: ContentVersionList,
         max_records: int = 50000,
     ):
-        query = """
-        SELECT Id, ContentDocumentId, Checksum, Title, FileExtension
-        FROM ContentVersion
-        WHERE ContentDocumentId IN ({id_list})
-        """.strip().format(
+        query = (
+            'SELECT Id, ContentDocumentId, Checksum, Title, FileExtension '
+            'FROM ContentVersion '
+            'WHERE ContentDocumentId IN ({id_list})'
+        ).strip().format(
             id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids])
         )
         tmp_dir = self._init_tmp_dir()

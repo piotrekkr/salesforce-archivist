@@ -7,6 +7,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
+from salesforce_archivist.content_version import ContentVersion
 from salesforce_archivist.document_link import ContentDocumentLink
 from salesforce_archivist.salesforce import Salesforce, Client
 
@@ -141,3 +142,96 @@ def test_salesforce_download_content_document_link_list_csv_reading(csv_data: li
         )
         document_link_list.add_link.assert_has_calls(add_link_calls, any_order=True)
 
+
+@pytest.mark.parametrize('doc_ids, max_records, expected_query, expected_max_records', [
+    (
+        ['DOC_1', 'DOC_2'],
+        123,
+        (
+            "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension "
+            "FROM ContentVersion "
+            "WHERE ContentDocumentId IN ('DOC_1','DOC_2')"
+        ),
+        123
+    ),
+    (
+        ['DOC_7', 'DOC_1'],
+        None,
+        (
+            "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension "
+            "FROM ContentVersion "
+            "WHERE ContentDocumentId IN ('DOC_7','DOC_1')"
+        ),
+        50000
+    ),
+])
+def test_salesforce_download_content_version_list_queries(doc_ids: list[str], max_records: int | None, expected_query: str, expected_max_records: int):
+    client = Mock()
+    client.bulk2 = Mock()
+    content_version_list = Mock()
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
+        call_args = {
+            "document_ids": doc_ids,
+            "content_version_list": content_version_list,
+        }
+        if max_records is not None:
+            call_args["max_records"] = max_records
+        salesforce.download_content_version_list(**call_args)
+        client.bulk2.assert_called_with(query=expected_query, path=os.path.join(tmpdirname, 'tmp'), max_records=expected_max_records)
+
+
+@pytest.mark.parametrize('csv_data', [
+    # no files
+    [],
+    # no results from query (file with only header)
+    [
+        [
+            ['Id', 'ContentDocumentId', 'Checksum', 'Title', 'FileExtension']
+        ],
+    ],
+    # one file with results
+    [
+        [
+            ['Id', 'ContentDocumentId', 'Checksum', 'Title', 'FileExtension'],
+            ['Id_1', 'ContentDocumentId_1', 'Checksum_1', 'Title_1', 'ext1'],
+            ['Id_2', 'ContentDocumentId_2', 'Checksum_2', 'Title_2', 'ext2'],
+        ],
+    ],
+    # multiple files with results
+    [
+        [
+            ['Id', 'ContentDocumentId', 'Checksum', 'Title', 'FileExtension'],
+            ['Id_1', 'ContentDocumentId_1', 'Checksum_1', 'Title_1', 'ext1'],
+            ['Id_2', 'ContentDocumentId_2', 'Checksum_2', 'Title_2', 'ext2'],
+        ],
+        [
+            ['Id', 'ContentDocumentId', 'Checksum', 'Title', 'FileExtension'],
+            ['Id_3', 'ContentDocumentId_3', 'Checksum_3', 'Title_3', 'ext3'],
+            ['Id_4', 'ContentDocumentId_4', 'Checksum_4', 'Title_4', 'ext4'],
+        ],
+    ],
+])
+def test_salesforce_download_content_version_list_csv_reading(csv_data: list[list[str]]):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        client = Client(sf_client=Mock())
+        client.bulk2 = Mock(side_effect=lambda *args, **kwargs: gen_csv(data=csv_data, dir_name=os.path.join(tmpdirname, 'tmp')))
+        content_version_list = Mock()
+        add_version_calls = []
+        for file_data in csv_data:
+            for row in file_data[1:]:
+                version = ContentVersion(
+                    id=row[0],
+                    document_id=row[1],
+                    checksum=row[2],
+                    title=row[3],
+                    extension=row[4],
+                )
+                add_version_calls.append(call(version))
+
+        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
+        salesforce.download_content_version_list(
+            document_ids=['DOC_1', 'DOC_2'],
+            content_version_list=content_version_list,
+        )
+        content_version_list.add_version.assert_has_calls(add_version_calls, any_order=True)
