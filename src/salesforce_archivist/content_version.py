@@ -1,7 +1,6 @@
-import re
-
 import csv
 import os.path
+import re
 from typing import Any
 
 from salesforce_archivist.document_link import ContentDocumentLink

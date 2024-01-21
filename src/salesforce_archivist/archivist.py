@@ -1,26 +1,27 @@
+import datetime
 import hashlib
+import os.path
 import threading
 from collections import Counter
-from queue import Queue, Empty
-import datetime
-import os.path
 from math import ceil
-from typing import Generator, Any
+from queue import Empty, Queue
+from typing import Any, Generator
 
 import click
-from click._termui_impl import ProgressBar
-from schema import Schema, And, Or, Use, Optional
 import yaml
+from click._termui_impl import ProgressBar
+from schema import And, Optional, Or, Schema, Use
 from simple_salesforce import Salesforce as SalesforceClient
+
 from .content_version import (
+    ContentVersion,
     ContentVersionList,
     DownloadedContentVersionList,
-    ValidatedContentVersionList,
-    ContentVersion,
     ValidatedContentVersion,
+    ValidatedContentVersionList,
 )
 from .document_link import ContentDocumentLinkList
-from .salesforce import Salesforce, Client
+from .salesforce import Client, Salesforce
 
 
 class ArchivistObject:

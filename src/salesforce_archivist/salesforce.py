@@ -4,19 +4,19 @@ import glob
 import os.path
 import shutil
 from queue import Empty, Queue
-from click._termui_impl import ProgressBar
 from time import sleep
 
 import click
+from click._termui_impl import ProgressBar
 from requests import Response
 from simple_salesforce import Salesforce as SimpleSFClient
 from simple_salesforce.api import Usage
 
 from salesforce_archivist.content_version import (
-    ContentVersionList,
     ContentVersion,
-    DownloadedContentVersionList,
+    ContentVersionList,
     DownloadedContentVersion,
+    DownloadedContentVersionList,
 )
 from salesforce_archivist.document_link import (
     ContentDocumentLink,

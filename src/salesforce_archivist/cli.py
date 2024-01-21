@@ -1,8 +1,7 @@
+import click
 from click import Context
 
-from salesforce_archivist.archivist import ArchivistConfig, Archivist
-
-import click
+from salesforce_archivist.archivist import Archivist, ArchivistConfig
 
 
 @click.group()
