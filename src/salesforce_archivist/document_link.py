@@ -1,5 +1,6 @@
 import csv
 import os.path
+from typing import Any
 
 
 class ContentDocumentLink:
@@ -14,16 +15,20 @@ class ContentDocumentLink:
         self._download_dir_name = download_dir_name
 
     @property
-    def linked_entity_id(self):
+    def linked_entity_id(self) -> str:
         return self._linked_entity_id
 
     @property
-    def content_document_id(self):
+    def content_document_id(self) -> str:
         return self._content_document_id
 
     @property
-    def download_dir_name(self):
-        return self._download_dir_name
+    def download_dir_name(self) -> str:
+        return (
+            self._download_dir_name
+            if self._download_dir_name is not None
+            else self.linked_entity_id
+        )
 
     def to_csv(self) -> list[str]:
         row = [self.linked_entity_id, self.content_document_id]
@@ -31,12 +36,12 @@ class ContentDocumentLink:
             row.append(self._download_dir_name)
         return row
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(
             (self.linked_entity_id, self.content_document_id, self.download_dir_name)
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, type(self)):
             return NotImplemented
         return (self.linked_entity_id, self.content_document_id) == (
@@ -46,14 +51,14 @@ class ContentDocumentLink:
 
 
 class ContentDocumentLinkList:
-    def __init__(self, data_dir: str, dir_name_field):
+    def __init__(self, data_dir: str, dir_name_field: str | None = None):
         self._data: dict[str, ContentDocumentLink] = {}
         self._path = os.path.join(data_dir, "document_links.csv")
         self._dir_name_field = dir_name_field
         if os.path.exists(self._path):
             self._load_data()
 
-    def _load_data(self):
+    def _load_data(self) -> None:
         with open(self._path) as file:
             reader = csv.reader(file)
             next(reader)
@@ -65,7 +70,7 @@ class ContentDocumentLinkList:
                 )
                 self.add_link(link)
 
-    def save(self):
+    def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
             header = ["LinkedEntityId", "ContentDocumentId"]
@@ -81,7 +86,7 @@ class ContentDocumentLinkList:
                     row.append(link.download_dir_name)
                 writer.writerow(row)
 
-    def add_link(self, doc_link: ContentDocumentLink):
+    def add_link(self, doc_link: ContentDocumentLink) -> None:
         key = "{linked_id}_{document_id}".format(
             linked_id=doc_link.linked_entity_id,
             document_id=doc_link.content_document_id,
@@ -89,11 +94,11 @@ class ContentDocumentLinkList:
         self._data[key] = doc_link
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
     def get_links(self) -> dict[str, ContentDocumentLink]:
         return self._data
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._data)

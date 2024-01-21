@@ -26,21 +26,20 @@ from salesforce_archivist.document_link import (
 
 class ApiUsage:
     def __init__(self, usage: Usage):
-        self._used = usage.used
-        self._total = usage.total
-        self._percent = round(usage.used / usage.total * 100, 2)
+        self._used: int = usage.used
+        self._total: int = usage.total
 
     @property
-    def used(self):
+    def used(self) -> int:
         return self._used
 
     @property
-    def total(self):
+    def total(self) -> int:
         return self._total
 
     @property
-    def percent(self):
-        return self._percent
+    def percent(self) -> float:
+        return round(self.used / self.total * 100, 2) if self.total > 0 else 0.0
 
 
 class Client:
@@ -48,12 +47,13 @@ class Client:
         self._simple_sf_client = sf_client
 
     def bulk2(self, query: str, path: str, max_records: int) -> list[dict]:
-        return self._simple_sf_client.bulk2.Account.download(
+        result: list[dict] = self._simple_sf_client.bulk2.Account.download(
             query=query, path=path, max_records=max_records
         )
+        return result
 
     def download_content_version(self, version: ContentVersion) -> Response:
-        return self._simple_sf_client._call_salesforce(
+        result: Response = self._simple_sf_client._call_salesforce(
             url="{base}/sobjects/ContentVersion/{id}/VersionData".format(
                 base=self._simple_sf_client.base_url, id=version.id
             ),
@@ -61,8 +61,9 @@ class Client:
             headers={"Content-Type": "application/octet-stream"},
             stream=True,
         )
+        return result
 
-    def get_api_usage(self, refresh=False) -> ApiUsage:
+    def get_api_usage(self, refresh: bool = False) -> ApiUsage:
         if refresh:
             self._simple_sf_client.limits()
         return ApiUsage(self._simple_sf_client.api_usage["api-usage"])
@@ -122,7 +123,7 @@ class Salesforce:
         modified_date_gt: datetime.datetime | None = None,
         max_records: int = 50000,
         dir_name_field: str | None = None,
-    ):
+    ) -> None:
         tmp_dir = self._init_tmp_dir()
         query = self._get_content_document_list_query(
             obj_type=obj_type,
@@ -151,7 +152,7 @@ class Salesforce:
         document_ids: list[str],
         content_version_list: ContentVersionList,
         max_records: int = 50000,
-    ):
+    ) -> None:
         query = (
             (
                 "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension "
@@ -188,7 +189,7 @@ class Salesforce:
         downloaded_versions_list: DownloadedContentVersionList,
         max_api_usage_percent: float | None = None,
         progressbar: ProgressBar | None = None,
-    ):
+    ) -> None:
         while True:
             try:
                 queue_item: tuple[ContentVersion, str] = queue.get_nowait()
@@ -268,7 +269,9 @@ class Salesforce:
                 if progressbar is not None:
                     progressbar.update(1)
 
-    def _wait_if_usage_limit_hit(self, max_api_usage_percent: float | None = None):
+    def _wait_if_usage_limit_hit(
+        self, max_api_usage_percent: float | None = None
+    ) -> None:
         if max_api_usage_percent is not None:
             usage = self._client.get_api_usage()
             while usage.percent >= max_api_usage_percent:

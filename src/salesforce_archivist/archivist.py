@@ -33,7 +33,7 @@ class ArchivistObject:
         self._modified_date_gt: datetime.datetime | None = config.get(
             "modified_date_gt"
         )
-        self._dir_name_field: str = config["dir_name_field"]
+        self._dir_name_field: str | None = config.get("dir_name_field")
 
     @property
     def data_dir(self) -> str:
@@ -57,7 +57,7 @@ class ArchivistObject:
 
 
 class ArchivistAuth:
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, str]):
         self._login_url = config["instance_url"]
         self._username = config["username"]
         self._consumer_key = config["consumer_key"]
@@ -107,12 +107,12 @@ class ArchivistConfig:
         }
     )
 
-    def __init__(self, path):
+    def __init__(self, path: str):
         with open(path) as file:
             config = self._schema.validate(yaml.load(file, Loader=yaml.FullLoader))
-        self._auth = ArchivistAuth(config["auth"])
-        self._data_dir = config["data_dir"]
-        self._max_api_usage_percent = config["max_api_usage_percent"]
+        self._auth: ArchivistAuth = ArchivistAuth(config["auth"])
+        self._data_dir: str = config["data_dir"]
+        self._max_api_usage_percent: float = config["max_api_usage_percent"]
         self._objects = [
             ArchivistObject(self._data_dir, obj_type, config)
             for obj_type, config in config["objects"].items()
@@ -148,7 +148,7 @@ class Archivist:
             self._config.data_dir
         )
 
-    def download(self):
+    def download(self) -> None:
         for archivist_obj in self._config.objects:
             os.makedirs(archivist_obj.data_dir, exist_ok=True)
             salesforce = Salesforce(
@@ -175,7 +175,7 @@ class Archivist:
                 downloaded_versions_list=downloaded_versions_list,
             )
 
-    def validate(self):
+    def validate(self) -> None:
         validated_versions_list = ValidatedContentVersionList(self._config.data_dir)
         try:
             for archivist_obj in self._config.objects:
@@ -209,7 +209,7 @@ class Archivist:
         content_version_list: ContentVersionList,
         validated_versions_list: ValidatedContentVersionList,
         thread_num: int = 3,
-    ):
+    ) -> None:
         queue: Queue = Queue()
 
         for link in document_link_list.get_links().values():
@@ -286,7 +286,7 @@ class Archivist:
         validated_versions_list: ValidatedContentVersionList,
         result: dict[str, int],
         progressbar: ProgressBar | None = None,
-    ):
+    ) -> None:
         while True:
             try:
                 queue_item: tuple[ContentVersion, str] = queue.get_nowait()
@@ -339,7 +339,7 @@ class Archivist:
                     progressbar.update(1)
 
     @staticmethod
-    def _calculate_md5(path: str):
+    def _calculate_md5(path: str) -> str:
         hash_md5 = hashlib.md5()
         with open(path, "rb") as f:
             while chunk := f.read(4096):
@@ -378,7 +378,7 @@ class Archivist:
         document_link_list: ContentDocumentLinkList,
         archivist_obj: ArchivistObject,
         batch_size: int = 30,
-    ):
+    ) -> ContentVersionList:
         click.echo("Loading content versions")
         content_version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
         if not os.path.exists(content_version_list.path):
@@ -419,7 +419,7 @@ class Archivist:
         salesforce: Salesforce,
         content_version_list: ContentVersionList,
         progressbar: ProgressBar | None = None,
-    ):
+    ) -> None:
         for batch in range(1, all_batches + 1):
             start = (batch - 1) * batch_size
             end = start + batch_size
@@ -438,7 +438,7 @@ class Archivist:
         document_link_list: ContentDocumentLinkList,
         content_version_list: ContentVersionList,
         downloaded_versions_list: DownloadedContentVersionList,
-    ):
+    ) -> None:
         os.makedirs(os.path.join(archivist_obj.data_dir, "files"), exist_ok=True)
         queue: Queue = Queue()
 

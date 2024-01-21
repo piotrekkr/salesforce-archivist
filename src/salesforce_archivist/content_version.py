@@ -2,6 +2,7 @@ import re
 
 import csv
 import os.path
+from typing import Any
 
 from salesforce_archivist.document_link import ContentDocumentLink
 
@@ -17,34 +18,34 @@ class ContentVersion:
         self._checksum = checksum
 
     @property
-    def id(self):
+    def id(self) -> str:
         return self._id
 
     @property
-    def document_id(self):
+    def document_id(self) -> str:
         return self._document_id
 
     @property
-    def title(self):
+    def title(self) -> str:
         return self._title
 
     @property
-    def extension(self):
+    def extension(self) -> str:
         return self._extension
 
     @property
-    def checksum(self):
+    def checksum(self) -> str:
         return self._checksum
 
     @property
-    def filename(self):
+    def filename(self) -> str:
         return "{id}_{title}.{extension}".format(
             id=self.id,
             title=re.sub(r'[/\\?%*:|"<>]', "-", self.title),
             extension=self.extension,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if not isinstance(other, type(self)):
             return NotImplemented
         return (
@@ -64,7 +65,7 @@ class ContentVersionList:
         if os.path.exists(self._path):
             self._load_data()
 
-    def _load_data(self):
+    def _load_data(self) -> None:
         with open(self._path) as file:
             reader = csv.reader(file)
             next(reader)
@@ -78,7 +79,7 @@ class ContentVersionList:
                 )
                 self.add_version(version)
 
-    def save(self):
+    def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
             writer.writerow(
@@ -95,7 +96,7 @@ class ContentVersionList:
                     ]
                 )
 
-    def add_version(self, version: ContentVersion):
+    def add_version(self, version: ContentVersion) -> None:
         if version.document_id not in self._doc_versions_map:
             self._doc_versions_map[version.document_id] = set()
         self._doc_versions_map[version.document_id].add(version.id)
@@ -111,7 +112,7 @@ class ContentVersionList:
         return version_set
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
 
@@ -122,15 +123,15 @@ class DownloadedContentVersion:
         self._path = path
 
     @property
-    def id(self):
+    def id(self) -> str:
         return self._id
 
     @property
-    def document_id(self):
+    def document_id(self) -> str:
         return self._document_id
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
 
@@ -141,7 +142,7 @@ class DownloadedContentVersionList:
         if os.path.exists(self._path):
             self._load_data()
 
-    def _load_data(self):
+    def _load_data(self) -> None:
         with open(self._path) as file:
             reader = csv.reader(file)
             next(reader)
@@ -153,7 +154,7 @@ class DownloadedContentVersionList:
                 )
                 self.add_version(version)
 
-    def save(self):
+    def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
             writer.writerow(["Id", "ContentDocumentId", "Path on disk"])
@@ -166,7 +167,7 @@ class DownloadedContentVersionList:
                     ]
                 )
 
-    def add_version(self, version: DownloadedContentVersion):
+    def add_version(self, version: DownloadedContentVersion) -> None:
         self._data[version.id] = version
 
     def is_downloaded(self, content_version: ContentVersion) -> bool:
@@ -184,11 +185,11 @@ class ValidatedContentVersion:
         self._checksum = checksum
 
     @property
-    def path(self):
+    def path(self) -> str:
         return self._path
 
     @property
-    def checksum(self):
+    def checksum(self) -> str:
         return self._checksum
 
 
@@ -199,7 +200,7 @@ class ValidatedContentVersionList:
         if os.path.exists(self._path):
             self._load_data()
 
-    def _load_data(self):
+    def _load_data(self) -> None:
         with open(self._path) as file:
             reader = csv.reader(file)
             next(reader)
@@ -207,7 +208,7 @@ class ValidatedContentVersionList:
                 version = ValidatedContentVersion(checksum=row[0], path=row[1])
                 self.add_version(version)
 
-    def save(self):
+    def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
             writer.writerow(["Checksum", "Path"])
@@ -219,7 +220,7 @@ class ValidatedContentVersionList:
                     ]
                 )
 
-    def add_version(self, version: ValidatedContentVersion):
+    def add_version(self, version: ValidatedContentVersion) -> None:
         self._data[version.path] = version
 
     def is_validated(self, path: str) -> bool:
