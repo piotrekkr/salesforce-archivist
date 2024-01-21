@@ -35,7 +35,7 @@ archivist = 'salesforce_archivist.cli:cli'
 minversion = "7.0"
 addopts = "-ra -q"
 testpaths = [
-    "tests",
+    "test",
 ]
 
 [build-system]
@@ -53,8 +53,9 @@ disallow_untyped_calls = true
 warn_return_any = true
 warn_unused_ignores = true
 
-[isort]
-src_paths = ["src", "tests"]
+[tool.isort]
+profile = "black"
+src_paths = ["src/salesforce_archivist", "test"]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0

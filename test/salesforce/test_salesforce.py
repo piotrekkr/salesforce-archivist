@@ -2,14 +2,13 @@ import csv
 import os.path
 import tempfile
 from datetime import datetime, timezone
-
 from unittest.mock import Mock, call
 
 import pytest
 
 from salesforce_archivist.content_version import ContentVersion
 from salesforce_archivist.document_link import ContentDocumentLink
-from salesforce_archivist.salesforce import Salesforce, Client
+from salesforce_archivist.salesforce import Client, Salesforce
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,6 @@
-from requests import Response
 from unittest.mock import Mock, call
+
+from requests import Response
 
 from salesforce_archivist.content_version import ContentVersion
 from salesforce_archivist.salesforce import Client

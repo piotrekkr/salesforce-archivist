@@ -1,5 +1,6 @@
 import pytest
 from simple_salesforce.api import Usage
+
 from salesforce_archivist.salesforce import ApiUsage
 
 
