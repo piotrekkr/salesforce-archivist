@@ -141,9 +141,7 @@ class Salesforce:
                     link = ContentDocumentLink(
                         linked_entity_id=row[0],
                         content_document_id=row[1],
-                        download_dir_name=row[2]
-                        if dir_name_field is not None
-                        else None,
+                        download_dir_name=row[2] if dir_name_field is not None else None,
                     )
                     document_link_list.add_link(link)
 
@@ -153,18 +151,8 @@ class Salesforce:
         content_version_list: ContentVersionList,
         max_records: int = 50000,
     ) -> None:
-        query = (
-            (
-                "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension "
-                "FROM ContentVersion "
-                "WHERE ContentDocumentId IN ({id_list})"
-            )
-            .strip()
-            .format(
-                id_list=",".join(
-                    ["'{id}'".format(id=doc_id) for doc_id in document_ids]
-                )
-            )
+        query = "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension FROM ContentVersion WHERE ContentDocumentId IN ({id_list})".strip().format(
+            id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids])
         )
         tmp_dir = self._init_tmp_dir()
         self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
@@ -214,12 +202,11 @@ class Salesforce:
                     )
                     continue
 
-                if downloaded_version is not None and os.path.exists(
-                    downloaded_version.path
-                ):
+                if downloaded_version is not None and os.path.exists(downloaded_version.path):
                     if downloaded_version.path != download_path:
                         click.echo(
-                            "[W:{worker}] [NOTICE] Copying already downloaded content version {id} from {src} to {dst}".format(
+                            "[W:{worker}] [NOTICE] Copying already downloaded content version {id} from {src} to {dst}"
+                            .format(
                                 id=version.id,
                                 src=downloaded_version.path,
                                 dst=download_path,
@@ -252,12 +239,11 @@ class Salesforce:
                         usage=self._client.get_api_usage().percent,
                     )
                 )
-                self._wait_if_usage_limit_hit(
-                    max_api_usage_percent=max_api_usage_percent
-                )
+                self._wait_if_usage_limit_hit(max_api_usage_percent=max_api_usage_percent)
             except Exception as e:
                 click.echo(
-                    "[W:{worker}][API usage: {usage:.2f}%] [ERROR] Failed to download content version {id}: {error}".format(
+                    "[W:{worker}][API usage: {usage:.2f}%] [ERROR] Failed to download content version {id}: {error}"
+                    .format(
                         id=queue_item[0].id,
                         error=e,
                         worker=worker_num,
@@ -269,9 +255,7 @@ class Salesforce:
                 if progressbar is not None:
                     progressbar.update(1)
 
-    def _wait_if_usage_limit_hit(
-        self, max_api_usage_percent: float | None = None
-    ) -> None:
+    def _wait_if_usage_limit_hit(self, max_api_usage_percent: float | None = None) -> None:
         if max_api_usage_percent is not None:
             usage = self._client.get_api_usage()
             while usage.percent >= max_api_usage_percent:

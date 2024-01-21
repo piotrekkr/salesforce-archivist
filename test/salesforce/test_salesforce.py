@@ -2,7 +2,7 @@ import csv
 import os.path
 import tempfile
 from datetime import datetime, timezone
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -18,11 +18,7 @@ from salesforce_archivist.salesforce import Client, Salesforce
             None,
             None,
             None,
-            (
-                "SELECT LinkedEntityId, ContentDocumentId "
-                "FROM ContentDocumentLink "
-                "WHERE LinkedEntity.Type = 'User'"
-            ),
+            "SELECT LinkedEntityId, ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntity.Type = 'User'",
         ),
         (
             datetime(
@@ -116,9 +112,7 @@ def test_salesforce_download_content_document_link_list_queries(
     client.bulk2 = Mock()
     document_link_list = Mock()
     with tempfile.TemporaryDirectory() as tmpdirname:
-        salesforce = Salesforce(
-            data_dir=tmpdirname, client=client, max_api_usage_percent=50
-        )
+        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
         salesforce.download_content_document_link_list(
             document_link_list=document_link_list,
             obj_type="User",
@@ -137,9 +131,7 @@ def gen_csv(data: list[list[str]], dir_name: str):
     for file_data in data:
         temp_file_path = tempfile.mkstemp(suffix=".csv", dir=dir_name, text=True)[1]
         with open(temp_file_path, newline="", mode="w") as csv_file:
-            writer = csv.writer(
-                csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
-            )
+            writer = csv.writer(csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
             for row in file_data:
                 writer.writerow(row)
 
@@ -154,21 +146,17 @@ def gen_csv(data: list[list[str]], dir_name: str):
             [["LinkedEntityId", "ContentDocumentId"]],
         ],
         # results without custom field for dir name
-        [
-            [
-                ["LinkedEntityId", "ContentDocumentId"],
-                ["LinkedEntityId_1", "ContentDocumentId_1"],
-                ["LinkedEntityId_2", "ContentDocumentId_2"],
-            ]
-        ],
+        [[
+            ["LinkedEntityId", "ContentDocumentId"],
+            ["LinkedEntityId_1", "ContentDocumentId_1"],
+            ["LinkedEntityId_2", "ContentDocumentId_2"],
+        ]],
         # results with custom field for dir name
-        [
-            [
-                ["LinkedEntityId", "ContentDocumentId", "CustomFieldForDirName"],
-                ["LinkedEntityId_1", "ContentDocumentId_1", "CustomFieldForDirName_1"],
-                ["LinkedEntityId_2", "ContentDocumentId_2", "CustomFieldForDirName_2"],
-            ]
-        ],
+        [[
+            ["LinkedEntityId", "ContentDocumentId", "CustomFieldForDirName"],
+            ["LinkedEntityId_1", "ContentDocumentId_1", "CustomFieldForDirName_1"],
+            ["LinkedEntityId_2", "ContentDocumentId_2", "CustomFieldForDirName_2"],
+        ]],
         # results with custom field for dir name in multiple csv files
         [
             [
@@ -190,9 +178,7 @@ def test_salesforce_download_content_document_link_list_csv_reading(
     with tempfile.TemporaryDirectory() as tmpdirname:
         client = Client(sf_client=Mock())
         client.bulk2 = Mock(
-            side_effect=lambda *args, **kwargs: gen_csv(
-                data=csv_data, dir_name=os.path.join(tmpdirname, "tmp")
-            )
+            side_effect=lambda *args, **kwargs: gen_csv(data=csv_data, dir_name=os.path.join(tmpdirname, "tmp"))
         )
         document_link_list = Mock()
         add_link_calls = []
@@ -205,15 +191,11 @@ def test_salesforce_download_content_document_link_list_csv_reading(
                 )
                 add_link_calls.append(call(doc_link))
 
-        salesforce = Salesforce(
-            data_dir=tmpdirname, client=client, max_api_usage_percent=50
-        )
+        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
         salesforce.download_content_document_link_list(
             document_link_list=document_link_list,
             obj_type="User",
-            dir_name_field=csv_data[0][0][2]
-            if len(csv_data) and len(csv_data[0][0]) > 2
-            else None,
+            dir_name_field=csv_data[0][0][2] if len(csv_data) and len(csv_data[0][0]) > 2 else None,
         )
         document_link_list.add_link.assert_has_calls(add_link_calls, any_order=True)
 
@@ -253,9 +235,7 @@ def test_salesforce_download_content_version_list_queries(
     client.bulk2 = Mock()
     content_version_list = Mock()
     with tempfile.TemporaryDirectory() as tmpdirname:
-        salesforce = Salesforce(
-            data_dir=tmpdirname, client=client, max_api_usage_percent=50
-        )
+        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
         call_args = {
             "document_ids": doc_ids,
             "content_version_list": content_version_list,
@@ -308,9 +288,7 @@ def test_salesforce_download_content_version_list_csv_reading(
     with tempfile.TemporaryDirectory() as tmpdirname:
         client = Client(sf_client=Mock())
         client.bulk2 = Mock(
-            side_effect=lambda *args, **kwargs: gen_csv(
-                data=csv_data, dir_name=os.path.join(tmpdirname, "tmp")
-            )
+            side_effect=lambda *args, **kwargs: gen_csv(data=csv_data, dir_name=os.path.join(tmpdirname, "tmp"))
         )
         content_version_list = Mock()
         add_version_calls = []
@@ -325,13 +303,9 @@ def test_salesforce_download_content_version_list_csv_reading(
                 )
                 add_version_calls.append(call(version))
 
-        salesforce = Salesforce(
-            data_dir=tmpdirname, client=client, max_api_usage_percent=50
-        )
+        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
         salesforce.download_content_version_list(
             document_ids=["DOC_1", "DOC_2"],
             content_version_list=content_version_list,
         )
-        content_version_list.add_version.assert_has_calls(
-            add_version_calls, any_order=True
-        )
+        content_version_list.add_version.assert_has_calls(add_version_calls, any_order=True)

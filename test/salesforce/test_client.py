@@ -15,9 +15,7 @@ def test_bulk2():
 
 
 def test_download_content_version():
-    content_version = ContentVersion(
-        id="VID", document_id="DID", extension="pdf", title="Title", checksum="MD5"
-    )
+    content_version = ContentVersion(id="VID", document_id="DID", extension="pdf", title="Title", checksum="MD5")
     sf_base_url = "https://example.com"
     mock_sf = Mock()
     mock_sf.base_url = sf_base_url
@@ -28,9 +26,7 @@ def test_download_content_version():
     assert client.download_content_version(version=content_version) == expected_result
 
     expected_calls = call._call_salesforce(
-        url="{base}/sobjects/ContentVersion/{id}/VersionData".format(
-            base=sf_base_url, id=content_version.id
-        ),
+        url="{base}/sobjects/ContentVersion/{id}/VersionData".format(base=sf_base_url, id=content_version.id),
         method="GET",
         headers={"Content-Type": "application/octet-stream"},
         stream=True,

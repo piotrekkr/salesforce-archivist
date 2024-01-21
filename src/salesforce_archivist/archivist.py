@@ -28,12 +28,8 @@ class ArchivistObject:
     def __init__(self, data_dir: str, obj_type: str, config: dict[str, Any]):
         self._data_dir: str = os.path.join(data_dir, obj_type)
         self._obj_type: str = obj_type
-        self._modified_date_lt: datetime.datetime | None = config.get(
-            "modified_date_lt"
-        )
-        self._modified_date_gt: datetime.datetime | None = config.get(
-            "modified_date_gt"
-        )
+        self._modified_date_lt: datetime.datetime | None = config.get("modified_date_lt")
+        self._modified_date_gt: datetime.datetime | None = config.get("modified_date_gt")
         self._dir_name_field: str | None = config.get("dir_name_field")
 
     @property
@@ -82,31 +78,23 @@ class ArchivistAuth:
 
 
 class ArchivistConfig:
-    _schema = Schema(
-        {
-            "data_dir": And(
-                str, len, os.path.isdir, error="data_dir must be set and be a directory"
-            ),
-            "max_api_usage_percent": Or(
-                int, float, Use(float), lambda v: 0.0 < v <= 100.0
-            ),
-            "auth": {
-                "instance_url": And(str, len),
-                "username": And(str, len),
-                "consumer_key": And(str, len),
-                "private_key": And(bytes, len, Use(lambda b: b.decode("UTF-8"))),
-            },
-            "objects": {
-                str: {
-                    # "query": And(str, len),
-                    Optional(
-                        Or("modified_date_gt", "modified_date_lt")
-                    ): lambda d: isinstance(d, datetime.datetime),
-                    Optional("dir_name_field"): And(str, len),
-                }
-            },
-        }
-    )
+    _schema = Schema({
+        "data_dir": And(str, len, os.path.isdir, error="data_dir must be set and be a directory"),
+        "max_api_usage_percent": Or(int, float, Use(float), lambda v: 0.0 < v <= 100.0),
+        "auth": {
+            "instance_url": And(str, len),
+            "username": And(str, len),
+            "consumer_key": And(str, len),
+            "private_key": And(bytes, len, Use(lambda b: b.decode("UTF-8"))),
+        },
+        "objects": {
+            str: {
+                # "query": And(str, len),
+                Optional(Or("modified_date_gt", "modified_date_lt")): lambda d: isinstance(d, datetime.datetime),
+                Optional("dir_name_field"): And(str, len),
+            }
+        },
+    })
 
     def __init__(self, path: str):
         with open(path) as file:
@@ -115,8 +103,7 @@ class ArchivistConfig:
         self._data_dir: str = config["data_dir"]
         self._max_api_usage_percent: float = config["max_api_usage_percent"]
         self._objects = [
-            ArchivistObject(self._data_dir, obj_type, config)
-            for obj_type, config in config["objects"].items()
+            ArchivistObject(self._data_dir, obj_type, config) for obj_type, config in config["objects"].items()
         ]
 
     @property
@@ -145,9 +132,7 @@ class Archivist:
             consumer_key=config.auth.consumer_key,
             privatekey=config.auth.private_key,
         )
-        self._downloaded_version_list = DownloadedContentVersionList(
-            self._config.data_dir
-        )
+        self._downloaded_version_list = DownloadedContentVersionList(self._config.data_dir)
 
     def download(self) -> None:
         for archivist_obj in self._config.objects:
@@ -157,17 +142,13 @@ class Archivist:
                 client=Client(self._sf_client),
                 max_api_usage_percent=self._config.max_api_usage_percent,
             )
-            document_link_list = self._load_document_link_list(
-                salesforce=salesforce, archivist_obj=archivist_obj
-            )
+            document_link_list = self._load_document_link_list(salesforce=salesforce, archivist_obj=archivist_obj)
             content_version_list = self._load_content_version_list(
                 salesforce=salesforce,
                 archivist_obj=archivist_obj,
                 document_link_list=document_link_list,
             )
-            downloaded_versions_list = DownloadedContentVersionList(
-                self._config.data_dir
-            )
+            downloaded_versions_list = DownloadedContentVersionList(self._config.data_dir)
             self._download_object_files(
                 salesforce=salesforce,
                 archivist_obj=archivist_obj,
@@ -186,9 +167,7 @@ class Archivist:
                     client=Client(self._sf_client),
                     max_api_usage_percent=self._config.max_api_usage_percent,
                 )
-                document_link_list = self._load_document_link_list(
-                    salesforce=salesforce, archivist_obj=archivist_obj
-                )
+                document_link_list = self._load_document_link_list(salesforce=salesforce, archivist_obj=archivist_obj)
                 content_version_list = self._load_content_version_list(
                     salesforce=salesforce,
                     archivist_obj=archivist_obj,
@@ -267,16 +246,10 @@ class Archivist:
             results_sum.update(result)
         final_result = dict(results_sum)
 
-        click.echo(
-            "Total paths processed: {total}, missing: {missing}, invalid: {invalid}".format(
-                **final_result
-            )
-        )
+        click.echo("Total paths processed: {total}, missing: {missing}, invalid: {invalid}".format(**final_result))
         click.echo(
             "[{result}] Validation finished.".format(
-                result="OK"
-                if final_result["missing"] == 0 and final_result["invalid"] == 0
-                else "FAILED"
+                result="OK" if final_result["missing"] == 0 and final_result["invalid"] == 0 else "FAILED"
             )
         )
 
@@ -297,40 +270,26 @@ class Archivist:
             version, path = queue_item
             try:
                 if not os.path.exists(path):
-                    click.echo(
-                        "[W:{worker}] [ERROR] File does not exist: {path}".format(
-                            path=path, worker=worker_num
-                        )
-                    )
+                    click.echo("[W:{worker}] [ERROR] File does not exist: {path}".format(path=path, worker=worker_num))
                     result["missing"] += 1
                     continue
-                if (
-                    validated_version := validated_versions_list.get_version(path)
-                ) is not None:
+                if (validated_version := validated_versions_list.get_version(path)) is not None:
                     if version.checksum != validated_version.checksum:
                         click.echo(
-                            "[W:{worker}] [ERROR] File checksum invalid: {path}".format(
-                                path=path, worker=worker_num
-                            )
+                            "[W:{worker}] [ERROR] File checksum invalid: {path}".format(path=path, worker=worker_num)
                         )
                         result["invalid"] += 1
                         continue
                 checksum = self._calculate_md5(path)
                 if version.checksum != checksum:
                     click.echo(
-                        "[W:{worker}] [ERROR] File checksum invalid: {path}".format(
-                            path=path, worker=worker_num
-                        )
+                        "[W:{worker}] [ERROR] File checksum invalid: {path}".format(path=path, worker=worker_num)
                     )
                     result["invalid"] += 1
-                validated_versions_list.add_version(
-                    ValidatedContentVersion(path=path, checksum=checksum)
-                )
+                validated_versions_list.add_version(ValidatedContentVersion(path=path, checksum=checksum))
             except Exception as e:
                 click.echo(
-                    '[W:{worker}] [ERROR] Exception "{e}" occurred: {path}'.format(
-                        path=path, worker=worker_num, e=e
-                    )
+                    '[W:{worker}] [ERROR] Exception "{e}" occurred: {path}'.format(path=path, worker=worker_num, e=e)
                 )
                 result["invalid"] += 1
             finally:
@@ -348,9 +307,7 @@ class Archivist:
         return hash_md5.hexdigest()
 
     @staticmethod
-    def _load_document_link_list(
-        salesforce: Salesforce, archivist_obj: ArchivistObject
-    ) -> ContentDocumentLinkList:
+    def _load_document_link_list(salesforce: Salesforce, archivist_obj: ArchivistObject) -> ContentDocumentLinkList:
         click.echo("Loading document links")
         document_link_list = ContentDocumentLinkList(
             data_dir=archivist_obj.data_dir, dir_name_field=archivist_obj.dir_name_field
@@ -367,9 +324,7 @@ class Archivist:
                 )
             finally:
                 document_link_list.save()
-                click.echo(
-                    "Data saved into {path}".format(path=document_link_list.path)
-                )
+                click.echo("Data saved into {path}".format(path=document_link_list.path))
         click.echo("Document links are loaded!")
         return document_link_list
 
@@ -384,10 +339,7 @@ class Archivist:
         content_version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
         if not os.path.exists(content_version_list.path):
             try:
-                doc_id_list = [
-                    link.content_document_id
-                    for link in document_link_list.get_links().values()
-                ]
+                doc_id_list = [link.content_document_id for link in document_link_list.get_links().values()]
                 list_size = len(doc_id_list)
                 all_batches = ceil(list_size / batch_size)
                 progressbar: ProgressBar
@@ -406,9 +358,7 @@ class Archivist:
                     )
             finally:
                 content_version_list.save()
-                click.echo(
-                    "Data saved into {path}".format(path=content_version_list.path)
-                )
+                click.echo("Data saved into {path}".format(path=content_version_list.path))
         click.echo("Content versions are loaded!")
         return content_version_list
 

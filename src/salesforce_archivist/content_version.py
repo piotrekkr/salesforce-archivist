@@ -7,9 +7,7 @@ from salesforce_archivist.document_link import ContentDocumentLink
 
 
 class ContentVersion:
-    def __init__(
-        self, id: str, document_id: str, title: str, extension: str, checksum: str
-    ):
+    def __init__(self, id: str, document_id: str, title: str, extension: str, checksum: str):
         self._id = id
         self._document_id = document_id
         self._title = title
@@ -81,19 +79,15 @@ class ContentVersionList:
     def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
-            writer.writerow(
-                ["Id", "ContentDocumentId", "Checksum", "Title", "Extension"]
-            )
+            writer.writerow(["Id", "ContentDocumentId", "Checksum", "Title", "Extension"])
             for version_id, version in self._data.items():
-                writer.writerow(
-                    [
-                        version.id,
-                        version.document_id,
-                        version.checksum,
-                        version.title,
-                        version.extension,
-                    ]
-                )
+                writer.writerow([
+                    version.id,
+                    version.document_id,
+                    version.checksum,
+                    version.title,
+                    version.extension,
+                ])
 
     def add_version(self, version: ContentVersion) -> None:
         if version.document_id not in self._doc_versions_map:
@@ -101,9 +95,7 @@ class ContentVersionList:
         self._doc_versions_map[version.document_id].add(version.id)
         self._data[version.id] = version
 
-    def get_content_versions_for_link(
-        self, link: ContentDocumentLink
-    ) -> set[ContentVersion]:
+    def get_content_versions_for_link(self, link: ContentDocumentLink) -> set[ContentVersion]:
         version_set = set()
         if link.content_document_id in self._doc_versions_map:
             for version_id in self._doc_versions_map[link.content_document_id]:
@@ -158,13 +150,11 @@ class DownloadedContentVersionList:
             writer = csv.writer(file)
             writer.writerow(["Id", "ContentDocumentId", "Path on disk"])
             for version_id, version in self._data.items():
-                writer.writerow(
-                    [
-                        version.id,
-                        version.document_id,
-                        version.path,
-                    ]
-                )
+                writer.writerow([
+                    version.id,
+                    version.document_id,
+                    version.path,
+                ])
 
     def add_version(self, version: DownloadedContentVersion) -> None:
         self._data[version.id] = version
@@ -172,9 +162,7 @@ class DownloadedContentVersionList:
     def is_downloaded(self, content_version: ContentVersion) -> bool:
         return content_version.id in self._data
 
-    def get_version(
-        self, content_version: ContentVersion
-    ) -> DownloadedContentVersion | None:
+    def get_version(self, content_version: ContentVersion) -> DownloadedContentVersion | None:
         return self._data.get(content_version.id)
 
 
@@ -212,12 +200,10 @@ class ValidatedContentVersionList:
             writer = csv.writer(file)
             writer.writerow(["Checksum", "Path"])
             for version_id, version in self._data.items():
-                writer.writerow(
-                    [
-                        version.checksum,
-                        version.path,
-                    ]
-                )
+                writer.writerow([
+                    version.checksum,
+                    version.path,
+                ])
 
     def add_version(self, version: ValidatedContentVersion) -> None:
         self._data[version.path] = version
