@@ -18,10 +18,7 @@ from salesforce_archivist.content_version import (
     DownloadedContentVersion,
     DownloadedContentVersionList,
 )
-from salesforce_archivist.document_link import (
-    ContentDocumentLink,
-    ContentDocumentLinkList,
-)
+from salesforce_archivist.document_link import ContentDocumentLink, ContentDocumentLinkList
 
 
 class ApiUsage:
@@ -42,7 +39,7 @@ class ApiUsage:
         return round(self.used / self.total * 100, 2) if self.total > 0 else 0.0
 
 
-class Client:
+class SalesforceApiClient:
     def __init__(self, sf_client: SimpleSFClient):
         self._simple_sf_client = sf_client
 
@@ -73,7 +70,7 @@ class Salesforce:
     def __init__(
         self,
         data_dir: str,
-        client: Client,
+        client: SalesforceApiClient,
         max_api_usage_percent: float | None = None,
     ):
         self._data_dir = data_dir
@@ -260,4 +257,103 @@ class Salesforce:
             usage = self._client.get_api_usage()
             while usage.percent >= max_api_usage_percent:
                 sleep(5 * 60)
+                usage = self._client.get_api_usage(refresh=True)
+
+
+class ContentVersionDownloader:
+    def __init__(
+        self,
+        client: SalesforceApiClient,
+        downloaded_versions_list: DownloadedContentVersionList,
+        max_api_usage_percent: float | None = None,
+        progressbar: ProgressBar | None = None,
+    ):
+        self._client = client
+        self._downloaded_versions_list = downloaded_versions_list
+        self._max_api_usage_percent = max_api_usage_percent
+        self._progressbar = progressbar
+
+    def download_content_version(self, version: ContentVersion, download_path: str) -> str:
+        downloaded_version = self._downloaded_versions_list.get_version(version)
+        if os.path.exists(download_path):
+            if downloaded_version is None:
+                downloaded_version = DownloadedContentVersion(
+                    id=version.id,
+                    document_id=version.document_id,
+                    path=download_path,
+                )
+                self._downloaded_versions_list.add_version(downloaded_version)
+                return (
+                    "[NOTICE] Content version {id} already downloaded but not on the list. Adding to the list.".format(
+                        id=version.id
+                    )
+                )
+            return "[OK] Content version {id} already downloaded. Skipping".format(id=version.id)
+
+        if downloaded_version is not None and os.path.exists(downloaded_version.path):
+            if downloaded_version.path != download_path:
+                os.makedirs(os.path.dirname(download_path), exist_ok=True)
+                shutil.copy(downloaded_version.path, download_path)
+                return "[NOTICE] Copying already downloaded content version {id} from {src} to {dst}".format(
+                    id=version.id,
+                    src=downloaded_version.path,
+                    dst=download_path,
+                )
+            return "[OK] Content version {id} already downloaded. Skipping".format(id=version.id)
+
+        result = self._client.download_content_version(version)
+        os.makedirs(os.path.dirname(download_path), exist_ok=True)
+        with open(download_path, "wb") as file:
+            for chunk in result.iter_content(chunk_size=1024):
+                if chunk:
+                    file.write(chunk)
+
+        downloaded_version = DownloadedContentVersion(
+            id=version.id,
+            document_id=version.document_id,
+            path=download_path,
+        )
+        self._downloaded_versions_list.add_version(downloaded_version)
+        return "[OK] Downloaded content version {id} into {path}".format(
+            id=version.id,
+            path=download_path,
+        )
+
+    def download_content_versions_in_queue(self, queue: Queue, worker_num: int | None = None) -> None:
+        while True:
+            try:
+                queue_item: tuple[ContentVersion, str] = queue.get_nowait()
+            except Empty:
+                break
+
+            try:
+                msg = self.download_content_version(version=queue_item[0], download_path=queue_item[1])
+                click.echo(
+                    "[W:{worker}][API usage: {usage:.2f}%] {msg}".format(
+                        worker=worker_num,
+                        usage=self._client.get_api_usage().percent,
+                        msg=msg,
+                    )
+                )
+                self.wait_if_api_usage_limit()
+            except Exception as e:
+                click.echo(
+                    "[W:{worker}][API usage: {usage:.2f}%] [ERROR] Failed to download content version {id}: {error}"
+                    .format(
+                        id=queue_item[0].id,
+                        error=e,
+                        worker=worker_num,
+                        usage=self._client.get_api_usage().percent,
+                    )
+                )
+            finally:
+                queue.task_done()
+                if self._progressbar is not None:
+                    self._progressbar.update(1)
+
+    def wait_if_api_usage_limit(self, sleep_sec: int = 300) -> None:
+        if self._max_api_usage_percent is not None:
+            usage = self._client.get_api_usage()
+            while usage.percent >= self._max_api_usage_percent:
+                sleep(sleep_sec)
                 usage = self._client.get_api_usage(refresh=True)

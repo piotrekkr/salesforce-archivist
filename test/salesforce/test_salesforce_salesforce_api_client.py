@@ -3,14 +3,14 @@ from unittest.mock import Mock, call
 from requests import Response
 
 from salesforce_archivist.content_version import ContentVersion
-from salesforce_archivist.salesforce import Client
+from salesforce_archivist.salesforce import SalesforceApiClient
 
 
 def test_bulk2():
     expected_result = [{"test": 1}]
     mock_sf = Mock()
     mock_sf.bulk2.Account.download.return_value = expected_result
-    client = Client(sf_client=mock_sf)
+    client = SalesforceApiClient(sf_client=mock_sf)
     assert client.bulk2("query", "path", 1) == expected_result
 
 
@@ -21,7 +21,7 @@ def test_download_content_version():
     mock_sf.base_url = sf_base_url
     expected_result = Response()
     mock_sf._call_salesforce.return_value = expected_result
-    client = Client(sf_client=mock_sf)
+    client = SalesforceApiClient(sf_client=mock_sf)
 
     assert client.download_content_version(version=content_version) == expected_result
 

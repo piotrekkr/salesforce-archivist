@@ -2,13 +2,13 @@ import csv
 import os.path
 import tempfile
 from datetime import datetime, timezone
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, call
 
 import pytest
 
 from salesforce_archivist.content_version import ContentVersion
 from salesforce_archivist.document_link import ContentDocumentLink
-from salesforce_archivist.salesforce import Client, Salesforce
+from salesforce_archivist.salesforce import Salesforce, SalesforceApiClient
 
 
 @pytest.mark.parametrize(
@@ -176,7 +176,7 @@ def test_salesforce_download_content_document_link_list_csv_reading(
     csv_data: list[list[str]],
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        client = Client(sf_client=Mock())
+        client = SalesforceApiClient(sf_client=Mock())
         client.bulk2 = Mock(
             side_effect=lambda *args, **kwargs: gen_csv(data=csv_data, dir_name=os.path.join(tmpdirname, "tmp"))
         )
@@ -286,7 +286,7 @@ def test_salesforce_download_content_version_list_csv_reading(
     csv_data: list[list[str]],
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        client = Client(sf_client=Mock())
+        client = SalesforceApiClient(sf_client=Mock())
         client.bulk2 = Mock(
             side_effect=lambda *args, **kwargs: gen_csv(data=csv_data, dir_name=os.path.join(tmpdirname, "tmp"))
         )
@@ -309,3 +309,12 @@ def test_salesforce_download_content_version_list_csv_reading(
             content_version_list=content_version_list,
         )
         content_version_list.add_version.assert_has_calls(add_version_calls, any_order=True)
+
+
+# @patch("os.path.exists", return_value=False)
+# @patch("os.makedirs")
+# @patch("shutil.copy")
+# def test_content_version_downloader_stop_on_empty_queue():
+#     # client = Client(sf_client=Mock())
+#     # salesforce = Salesforce(data_dir="tmpdirname", client=client, max_api_usage_percent=50)
+#     pass

@@ -13,6 +13,8 @@ from click._termui_impl import ProgressBar
 from schema import And, Optional, Or, Schema, Use
 from simple_salesforce import Salesforce as SalesforceClient
 
+from salesforce_archivist.salesforce import Salesforce
+
 from .content_version import (
     ContentVersion,
     ContentVersionList,
@@ -21,7 +23,7 @@ from .content_version import (
     ValidatedContentVersionList,
 )
 from .document_link import ContentDocumentLinkList
-from .salesforce import Client, Salesforce
+from .salesforce import SalesforceApiClient
 
 
 class ArchivistObject:
@@ -139,7 +141,7 @@ class Archivist:
             os.makedirs(archivist_obj.data_dir, exist_ok=True)
             salesforce = Salesforce(
                 data_dir=archivist_obj.data_dir,
-                client=Client(self._sf_client),
+                client=SalesforceApiClient(self._sf_client),
                 max_api_usage_percent=self._config.max_api_usage_percent,
             )
             document_link_list = self._load_document_link_list(salesforce=salesforce, archivist_obj=archivist_obj)
@@ -164,7 +166,7 @@ class Archivist:
                 os.makedirs(archivist_obj.data_dir, exist_ok=True)
                 salesforce = Salesforce(
                     data_dir=archivist_obj.data_dir,
-                    client=Client(self._sf_client),
+                    client=SalesforceApiClient(self._sf_client),
                     max_api_usage_percent=self._config.max_api_usage_percent,
                 )
                 document_link_list = self._load_document_link_list(salesforce=salesforce, archivist_obj=archivist_obj)
@@ -391,7 +393,7 @@ class Archivist:
         downloaded_versions_list: DownloadedContentVersionList,
     ) -> None:
         os.makedirs(os.path.join(archivist_obj.data_dir, "files"), exist_ok=True)
-        queue: Queue = Queue()
+        queue = Queue()
 
         for link in document_link_list.get_links().values():
             for version in content_version_list.get_content_versions_for_link(link):
