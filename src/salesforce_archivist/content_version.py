@@ -95,12 +95,12 @@ class ContentVersionList:
         self._doc_versions_map[version.document_id].add(version.id)
         self._data[version.id] = version
 
-    def get_content_versions_for_link(self, link: ContentDocumentLink) -> set[ContentVersion]:
-        version_set = set()
+    def get_content_versions_for_link(self, link: ContentDocumentLink) -> list[ContentVersion]:
+        versions = []
         if link.content_document_id in self._doc_versions_map:
             for version_id in self._doc_versions_map[link.content_document_id]:
-                version_set.add(self._data[version_id])
-        return version_set
+                versions.append(self._data[version_id])
+        return versions
 
     @property
     def path(self) -> str:

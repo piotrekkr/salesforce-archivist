@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import csv
-import datetime
 import glob
 import os.path
 import shutil
+import threading
+from math import ceil
 from queue import Empty, Queue
 from time import sleep
+from typing import TYPE_CHECKING
 
 import click
 from click._termui_impl import ProgressBar
@@ -19,6 +23,9 @@ from salesforce_archivist.content_version import (
     DownloadedContentVersionList,
 )
 from salesforce_archivist.document_link import ContentDocumentLink, ContentDocumentLinkList
+
+if TYPE_CHECKING:
+    from salesforce_archivist.archivist import ArchivistObject
 
 
 class ApiUsage:
@@ -69,43 +76,39 @@ class SalesforceApiClient:
 class Salesforce:
     def __init__(
         self,
-        data_dir: str,
+        archivist_obj: ArchivistObject,
         client: SalesforceApiClient,
+        dir_name_field: str | None = None,
         max_api_usage_percent: float | None = None,
     ):
-        self._data_dir = data_dir
+        self._archivist_obj = archivist_obj
         self._client = client
         self._max_api_usage_percent = max_api_usage_percent
+        self._dir_name_field = dir_name_field
 
     def _init_tmp_dir(self) -> str:
-        tmp_dir = os.path.join(self._data_dir, "tmp")
+        tmp_dir = os.path.join(self._archivist_obj.data_dir, "tmp")
         os.makedirs(tmp_dir, exist_ok=True)
-        for entry in os.scandir(os.path.join(self._data_dir, "tmp")):
+        for entry in os.scandir(tmp_dir):
             if entry.is_file():
                 os.remove(entry.path)
         return tmp_dir
 
-    @staticmethod
-    def _get_content_document_list_query(
-        obj_type: str,
-        modified_date_lt: datetime.datetime | None = None,
-        modified_date_gt: datetime.datetime | None = None,
-        dir_name_field: str | None = None,
-    ) -> str:
+    def _get_content_document_list_query(self) -> str:
         select_list = ["LinkedEntityId", "ContentDocumentId"]
-        if dir_name_field is not None and dir_name_field not in select_list:
-            select_list.append(dir_name_field)
-        where_list = ["LinkedEntity.Type = '{obj_type}'".format(obj_type=obj_type)]
-        if modified_date_lt is not None:
+        if self._archivist_obj.dir_name_field is not None and self._archivist_obj.dir_name_field not in select_list:
+            select_list.append(self._archivist_obj.dir_name_field)
+        where_list = ["LinkedEntity.Type = '{obj_type}'".format(obj_type=self._archivist_obj.obj_type)]
+        if self._archivist_obj.modified_date_lt is not None:
             where_list.append(
                 "ContentDocument.ContentModifiedDate < {date}".format(
-                    date=modified_date_lt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    date=self._archivist_obj.modified_date_lt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
-        if modified_date_gt is not None:
+        if self._archivist_obj.modified_date_gt is not None:
             where_list.append(
                 "ContentDocument.ContentModifiedDate > {date}".format(
-                    date=modified_date_gt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    date=self._archivist_obj.modified_date_gt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
         return "SELECT {fields} FROM ContentDocumentLink WHERE {where}".format(
@@ -115,19 +118,10 @@ class Salesforce:
     def download_content_document_link_list(
         self,
         document_link_list: ContentDocumentLinkList,
-        obj_type: str,
-        modified_date_lt: datetime.datetime | None = None,
-        modified_date_gt: datetime.datetime | None = None,
         max_records: int = 50000,
-        dir_name_field: str | None = None,
     ) -> None:
         tmp_dir = self._init_tmp_dir()
-        query = self._get_content_document_list_query(
-            obj_type=obj_type,
-            modified_date_gt=modified_date_gt,
-            modified_date_lt=modified_date_lt,
-            dir_name_field=dir_name_field,
-        )
+        query = self._get_content_document_list_query()
         self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
 
         for path in glob.glob(os.path.join(tmp_dir, "*.csv")):
@@ -138,9 +132,49 @@ class Salesforce:
                     link = ContentDocumentLink(
                         linked_entity_id=row[0],
                         content_document_id=row[1],
-                        download_dir_name=row[2] if dir_name_field is not None else None,
+                        download_dir_name=row[2] if self._archivist_obj.dir_name_field is not None else None,
                     )
                     document_link_list.add_link(link)
+
+    def load_document_link_list(self) -> ContentDocumentLinkList:
+        document_link_list = ContentDocumentLinkList(
+            data_dir=self._archivist_obj.data_dir, dir_name_field=self._archivist_obj.dir_name_field
+        )
+        if not os.path.exists(document_link_list.path):
+            try:
+                self.download_content_document_link_list(document_link_list=document_link_list)
+            finally:
+                document_link_list.save()
+        return document_link_list
+
+    def load_content_version_list(
+        self,
+        document_link_list: ContentDocumentLinkList,
+        batch_size: int = 3000,
+        progressbar: ProgressBar | None = None,
+    ) -> ContentVersionList:
+        content_version_list = ContentVersionList(data_dir=self._archivist_obj.data_dir)
+        if not os.path.exists(content_version_list.path):
+            try:
+                doc_id_list = [link.content_document_id for link in document_link_list.get_links().values()]
+                list_size = len(doc_id_list)
+                all_batches = ceil(list_size / batch_size)
+
+                for batch in range(1, all_batches + 1):
+                    start = (batch - 1) * batch_size
+                    end = start + batch_size
+                    doc_id_batch = doc_id_list[start:end]
+                    self.download_content_version_list(
+                        document_ids=doc_id_batch,
+                        content_version_list=content_version_list,
+                    )
+                    if progressbar is not None:
+                        progressbar.update(batch)
+            finally:
+                content_version_list.save()
+        if progressbar is not None:
+            progressbar.update(len(document_link_list))
+        return content_version_list
 
     def download_content_version_list(
         self,
@@ -167,13 +201,120 @@ class Salesforce:
                     )
                     content_version_list.add_version(version)
 
-    def content_version_downloader(
+    def download_files(
         self,
-        worker_num: int,
-        queue: Queue,
+        download_queue: ContentVersionDownloaderQueue,
+        downloaded_versions_list: DownloadedContentVersionList,
+        progressbar: ProgressBar | None = None,
+    ) -> None:
+        queue = download_queue.get_queue()
+        try:
+            threads = []
+            downloader = ContentVersionDownloader(
+                sf_client=self._client,
+                downloaded_versions_list=downloaded_versions_list,
+                max_api_usage_percent=self._max_api_usage_percent,
+                progressbar=progressbar,
+            )
+            for i in range(3):
+                thread = threading.Thread(
+                    target=downloader.download_content_versions_in_queue,
+                    kwargs={
+                        "worker_num": i,
+                        "queue": queue,
+                    },
+                    daemon=True,
+                )
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+        finally:
+            downloaded_versions_list.save()
+
+
+class ContentVersionDownloaderQueue:
+    def __init__(
+        self,
+        document_link_list: ContentDocumentLinkList,
+        content_version_list: ContentVersionList,
+        archivist_obj: ArchivistObject,
+    ):
+        self._document_link_list = document_link_list
+        self._content_version_list = content_version_list
+        self._archivist_obj = archivist_obj
+        self._queue: Queue | None = None
+
+    def get_queue(self) -> Queue:
+        if self._queue is None:
+            self._queue = Queue()
+            for link in self._document_link_list.get_links().values():
+                for version in self._content_version_list.get_content_versions_for_link(link):
+                    path = os.path.join(
+                        self._archivist_obj.data_dir,
+                        "files",
+                        link.download_dir_name,
+                        version.filename,
+                    )
+                    self._queue.put((version, path))
+        return self._queue
+
+    def __len__(self) -> int:
+        return self.get_queue().qsize()
+
+
+class ContentVersionDownloader:
+    def __init__(
+        self,
+        sf_client: SalesforceApiClient,
         downloaded_versions_list: DownloadedContentVersionList,
         max_api_usage_percent: float | None = None,
         progressbar: ProgressBar | None = None,
+    ):
+        self._client = sf_client
+        self._downloaded_versions_list = downloaded_versions_list
+        self._max_api_usage_percent = max_api_usage_percent
+        self._progressbar = progressbar
+
+    def download_content_version(self, version: ContentVersion, download_path: str) -> None:
+        downloaded_version = self._downloaded_versions_list.get_version(version)
+        # file exist under the path that we want to download into
+        if os.path.exists(download_path):
+            # if no version exist in downloaded list add a new downloaded version with this path
+            if downloaded_version is None:
+                downloaded_version = DownloadedContentVersion(
+                    id=version.id,
+                    document_id=version.document_id,
+                    path=download_path,
+                )
+                self._downloaded_versions_list.add_version(downloaded_version)
+
+        # version is on downloaded list and version points to existing file on disk
+        elif downloaded_version is not None and os.path.exists(downloaded_version.path):
+            # copy existing file if download path is different from already downloaded version path in the list
+            if downloaded_version.path != download_path:
+                os.makedirs(os.path.dirname(download_path), exist_ok=True)
+                shutil.copy(downloaded_version.path, download_path)
+
+        # download version using SF API and add to the list
+        else:
+            result = self._client.download_content_version(version)
+            os.makedirs(os.path.dirname(download_path), exist_ok=True)
+            with open(download_path, "wb") as file:
+                for chunk in result.iter_content(chunk_size=1024):
+                    if chunk:
+                        file.write(chunk)
+
+            downloaded_version = DownloadedContentVersion(
+                id=version.id,
+                document_id=version.document_id,
+                path=download_path,
+            )
+            self._downloaded_versions_list.add_version(downloaded_version)
+
+    def download_content_versions_in_queue(
+        self, queue: Queue, worker_num: int | None = None, verbose: bool = False
     ) -> None:
         while True:
             try:
@@ -183,158 +324,16 @@ class Salesforce:
 
             try:
                 version, download_path = queue_item
-                downloaded_version = downloaded_versions_list.get_version(version)
-                if os.path.exists(download_path):
-                    if downloaded_version is None:
-                        downloaded_version = DownloadedContentVersion(
+                self.download_content_version(version=version, download_path=download_path)
+                if verbose:
+                    click.echo(
+                        "[W:{worker}][API usage: {usage:.2f}%] [OK] Downloaded content version {id} into {path}".format(
+                            worker=worker_num,
+                            usage=self._client.get_api_usage().percent,
                             id=version.id,
-                            document_id=version.document_id,
                             path=download_path,
                         )
-                        downloaded_versions_list.add_version(downloaded_version)
-                    click.echo(
-                        "[W:{worker}] [NOTICE] Content version {id} already downloaded. Skipping".format(
-                            id=version.id, worker=worker_num
-                        )
                     )
-                    continue
-
-                if downloaded_version is not None and os.path.exists(downloaded_version.path):
-                    if downloaded_version.path != download_path:
-                        click.echo(
-                            "[W:{worker}] [NOTICE] Copying already downloaded content version {id} from {src} to {dst}"
-                            .format(
-                                id=version.id,
-                                src=downloaded_version.path,
-                                dst=download_path,
-                                worker=worker_num,
-                            )
-                        )
-                        os.makedirs(os.path.dirname(download_path), exist_ok=True)
-                        shutil.copy(downloaded_version.path, download_path)
-                    continue
-
-                result = self._client.download_content_version(version)
-                os.makedirs(os.path.dirname(download_path), exist_ok=True)
-                with open(download_path, "wb") as file:
-                    for chunk in result.iter_content(chunk_size=1024):
-                        if chunk:
-                            file.write(chunk)
-
-                downloaded_version = DownloadedContentVersion(
-                    id=version.id,
-                    document_id=version.document_id,
-                    path=download_path,
-                )
-                downloaded_versions_list.add_version(downloaded_version)
-
-                click.echo(
-                    "[W:{worker}][API usage: {usage:.2f}%] [OK] Downloaded content version {id} into {path}".format(
-                        worker=worker_num,
-                        id=version.id,
-                        path=download_path,
-                        usage=self._client.get_api_usage().percent,
-                    )
-                )
-                self._wait_if_usage_limit_hit(max_api_usage_percent=max_api_usage_percent)
-            except Exception as e:
-                click.echo(
-                    "[W:{worker}][API usage: {usage:.2f}%] [ERROR] Failed to download content version {id}: {error}"
-                    .format(
-                        id=queue_item[0].id,
-                        error=e,
-                        worker=worker_num,
-                        usage=self._client.get_api_usage().percent,
-                    )
-                )
-            finally:
-                queue.task_done()
-                if progressbar is not None:
-                    progressbar.update(1)
-
-    def _wait_if_usage_limit_hit(self, max_api_usage_percent: float | None = None) -> None:
-        if max_api_usage_percent is not None:
-            usage = self._client.get_api_usage()
-            while usage.percent >= max_api_usage_percent:
-                sleep(5 * 60)
-                usage = self._client.get_api_usage(refresh=True)
-
-
-class ContentVersionDownloader:
-    def __init__(
-        self,
-        client: SalesforceApiClient,
-        downloaded_versions_list: DownloadedContentVersionList,
-        max_api_usage_percent: float | None = None,
-        progressbar: ProgressBar | None = None,
-    ):
-        self._client = client
-        self._downloaded_versions_list = downloaded_versions_list
-        self._max_api_usage_percent = max_api_usage_percent
-        self._progressbar = progressbar
-
-    def download_content_version(self, version: ContentVersion, download_path: str) -> str:
-        downloaded_version = self._downloaded_versions_list.get_version(version)
-        if os.path.exists(download_path):
-            if downloaded_version is None:
-                downloaded_version = DownloadedContentVersion(
-                    id=version.id,
-                    document_id=version.document_id,
-                    path=download_path,
-                )
-                self._downloaded_versions_list.add_version(downloaded_version)
-                return (
-                    "[NOTICE] Content version {id} already downloaded but not on the list. Adding to the list.".format(
-                        id=version.id
-                    )
-                )
-            return "[OK] Content version {id} already downloaded. Skipping".format(id=version.id)
-
-        if downloaded_version is not None and os.path.exists(downloaded_version.path):
-            if downloaded_version.path != download_path:
-                os.makedirs(os.path.dirname(download_path), exist_ok=True)
-                shutil.copy(downloaded_version.path, download_path)
-                return "[NOTICE] Copying already downloaded content version {id} from {src} to {dst}".format(
-                    id=version.id,
-                    src=downloaded_version.path,
-                    dst=download_path,
-                )
-            return "[OK] Content version {id} already downloaded. Skipping".format(id=version.id)
-
-        result = self._client.download_content_version(version)
-        os.makedirs(os.path.dirname(download_path), exist_ok=True)
-        with open(download_path, "wb") as file:
-            for chunk in result.iter_content(chunk_size=1024):
-                if chunk:
-                    file.write(chunk)
-
-        downloaded_version = DownloadedContentVersion(
-            id=version.id,
-            document_id=version.document_id,
-            path=download_path,
-        )
-        self._downloaded_versions_list.add_version(downloaded_version)
-        return "[OK] Downloaded content version {id} into {path}".format(
-            id=version.id,
-            path=download_path,
-        )
-
-    def download_content_versions_in_queue(self, queue: Queue, worker_num: int | None = None) -> None:
-        while True:
-            try:
-                queue_item: tuple[ContentVersion, str] = queue.get_nowait()
-            except Empty:
-                break
-
-            try:
-                msg = self.download_content_version(version=queue_item[0], download_path=queue_item[1])
-                click.echo(
-                    "[W:{worker}][API usage: {usage:.2f}%] {msg}".format(
-                        worker=worker_num,
-                        usage=self._client.get_api_usage().percent,
-                        msg=msg,
-                    )
-                )
                 self.wait_if_api_usage_limit()
             except Exception as e:
                 click.echo(

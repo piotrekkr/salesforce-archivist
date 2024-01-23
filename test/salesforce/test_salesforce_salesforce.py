@@ -6,6 +6,7 @@ from unittest.mock import Mock, call
 
 import pytest
 
+from salesforce_archivist.archivist import ArchivistObject
 from salesforce_archivist.content_version import ContentVersion
 from salesforce_archivist.document_link import ContentDocumentLink
 from salesforce_archivist.salesforce import Salesforce, SalesforceApiClient
@@ -112,17 +113,22 @@ def test_salesforce_download_content_document_link_list_queries(
     client.bulk2 = Mock()
     document_link_list = Mock()
     with tempfile.TemporaryDirectory() as tmpdirname:
-        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
+        archivist_obj = ArchivistObject(
+            data_dir=tmpdirname,
+            obj_type="User",
+            config={
+                "modified_date_lt": modified_date_lt,
+                "modified_date_gt": modified_date_gt,
+                "dir_name_field": dir_name_field,
+            },
+        )
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         salesforce.download_content_document_link_list(
             document_link_list=document_link_list,
-            obj_type="User",
-            modified_date_lt=modified_date_lt,
-            modified_date_gt=modified_date_gt,
-            dir_name_field=dir_name_field,
         )
         client.bulk2.assert_called_with(
             query=expected_query,
-            path=os.path.join(tmpdirname, "tmp"),
+            path=os.path.join(archivist_obj.data_dir, "tmp"),
             max_records=50000,
         )
 
@@ -177,8 +183,15 @@ def test_salesforce_download_content_document_link_list_csv_reading(
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
         client = SalesforceApiClient(sf_client=Mock())
+        archivist_obj = ArchivistObject(
+            data_dir=tmpdirname,
+            obj_type="User",
+            config={"dir_name_field": csv_data[0][0][2] if len(csv_data) and len(csv_data[0][0]) > 2 else None},
+        )
         client.bulk2 = Mock(
-            side_effect=lambda *args, **kwargs: gen_csv(data=csv_data, dir_name=os.path.join(tmpdirname, "tmp"))
+            side_effect=lambda *args, **kwargs: gen_csv(
+                data=csv_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
+            )
         )
         document_link_list = Mock()
         add_link_calls = []
@@ -191,11 +204,9 @@ def test_salesforce_download_content_document_link_list_csv_reading(
                 )
                 add_link_calls.append(call(doc_link))
 
-        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         salesforce.download_content_document_link_list(
             document_link_list=document_link_list,
-            obj_type="User",
-            dir_name_field=csv_data[0][0][2] if len(csv_data) and len(csv_data[0][0]) > 2 else None,
         )
         document_link_list.add_link.assert_has_calls(add_link_calls, any_order=True)
 
@@ -235,7 +246,8 @@ def test_salesforce_download_content_version_list_queries(
     client.bulk2 = Mock()
     content_version_list = Mock()
     with tempfile.TemporaryDirectory() as tmpdirname:
-        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         call_args = {
             "document_ids": doc_ids,
             "content_version_list": content_version_list,
@@ -245,7 +257,7 @@ def test_salesforce_download_content_version_list_queries(
         salesforce.download_content_version_list(**call_args)
         client.bulk2.assert_called_with(
             query=expected_query,
-            path=os.path.join(tmpdirname, "tmp"),
+            path=os.path.join(archivist_obj.data_dir, "tmp"),
             max_records=expected_max_records,
         )
 
@@ -287,8 +299,11 @@ def test_salesforce_download_content_version_list_csv_reading(
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
         client = SalesforceApiClient(sf_client=Mock())
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
         client.bulk2 = Mock(
-            side_effect=lambda *args, **kwargs: gen_csv(data=csv_data, dir_name=os.path.join(tmpdirname, "tmp"))
+            side_effect=lambda *args, **kwargs: gen_csv(
+                data=csv_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
+            )
         )
         content_version_list = Mock()
         add_version_calls = []
@@ -303,18 +318,9 @@ def test_salesforce_download_content_version_list_csv_reading(
                 )
                 add_version_calls.append(call(version))
 
-        salesforce = Salesforce(data_dir=tmpdirname, client=client, max_api_usage_percent=50)
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         salesforce.download_content_version_list(
             document_ids=["DOC_1", "DOC_2"],
             content_version_list=content_version_list,
         )
         content_version_list.add_version.assert_has_calls(add_version_calls, any_order=True)
-
-
-# @patch("os.path.exists", return_value=False)
-# @patch("os.makedirs")
-# @patch("shutil.copy")
-# def test_content_version_downloader_stop_on_empty_queue():
-#     # client = Client(sf_client=Mock())
-#     # salesforce = Salesforce(data_dir="tmpdirname", client=client, max_api_usage_percent=50)
-#     pass

@@ -3,7 +3,6 @@ import hashlib
 import os.path
 import threading
 from collections import Counter
-from math import ceil
 from queue import Empty, Queue
 from typing import Any, Generator
 
@@ -13,7 +12,7 @@ from click._termui_impl import ProgressBar
 from schema import And, Optional, Or, Schema, Use
 from simple_salesforce import Salesforce as SalesforceClient
 
-from salesforce_archivist.salesforce import Salesforce
+from salesforce_archivist.salesforce import ContentVersionDownloaderQueue, Salesforce
 
 from .content_version import (
     ContentVersion,
@@ -140,24 +139,43 @@ class Archivist:
         for archivist_obj in self._config.objects:
             os.makedirs(archivist_obj.data_dir, exist_ok=True)
             salesforce = Salesforce(
-                data_dir=archivist_obj.data_dir,
+                archivist_obj=archivist_obj,
                 client=SalesforceApiClient(self._sf_client),
                 max_api_usage_percent=self._config.max_api_usage_percent,
             )
-            document_link_list = self._load_document_link_list(salesforce=salesforce, archivist_obj=archivist_obj)
-            content_version_list = self._load_content_version_list(
-                salesforce=salesforce,
-                archivist_obj=archivist_obj,
-                document_link_list=document_link_list,
-            )
-            downloaded_versions_list = DownloadedContentVersionList(self._config.data_dir)
-            self._download_object_files(
-                salesforce=salesforce,
-                archivist_obj=archivist_obj,
+            click.echo("Downloading document link list.")
+            document_link_list = salesforce.load_document_link_list()
+            click.echo("Done.")
+            click.echo("Downloading content version list.")
+            with click.progressbar(
+                length=len(document_link_list),
+                label="",
+                show_eta=False,
+            ) as progressbar:  # type: ProgressBar
+                content_version_list = salesforce.load_content_version_list(
+                    document_link_list=document_link_list, progressbar=progressbar
+                )
+
+            click.echo("Done.")
+
+            click.echo("Downloading files.")
+            download_queue = ContentVersionDownloaderQueue(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
-                downloaded_versions_list=downloaded_versions_list,
+                archivist_obj=archivist_obj,
             )
+            with click.progressbar(
+                length=len(download_queue),
+                label="",
+                show_eta=False,
+            ) as progressbar:  # type: ProgressBar
+                downloaded_versions_list = DownloadedContentVersionList(self._config.data_dir)
+                salesforce.download_files(
+                    download_queue=download_queue,
+                    downloaded_versions_list=downloaded_versions_list,
+                    progressbar=progressbar,
+                )
+            click.echo("Download complete.")
 
     def validate(self) -> None:
         validated_versions_list = ValidatedContentVersionList(self._config.data_dir)
@@ -165,14 +183,12 @@ class Archivist:
             for archivist_obj in self._config.objects:
                 os.makedirs(archivist_obj.data_dir, exist_ok=True)
                 salesforce = Salesforce(
-                    data_dir=archivist_obj.data_dir,
+                    archivist_obj=archivist_obj,
                     client=SalesforceApiClient(self._sf_client),
                     max_api_usage_percent=self._config.max_api_usage_percent,
                 )
-                document_link_list = self._load_document_link_list(salesforce=salesforce, archivist_obj=archivist_obj)
-                content_version_list = self._load_content_version_list(
-                    salesforce=salesforce,
-                    archivist_obj=archivist_obj,
+                document_link_list = salesforce.load_document_link_list()
+                content_version_list = salesforce.load_content_version_list(
                     document_link_list=document_link_list,
                 )
                 self._validate_object_files(
@@ -307,127 +323,3 @@ class Archivist:
             while chunk := f.read(4096):
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
-
-    @staticmethod
-    def _load_document_link_list(salesforce: Salesforce, archivist_obj: ArchivistObject) -> ContentDocumentLinkList:
-        click.echo("Loading document links")
-        document_link_list = ContentDocumentLinkList(
-            data_dir=archivist_obj.data_dir, dir_name_field=archivist_obj.dir_name_field
-        )
-        if not os.path.exists(document_link_list.path):
-            try:
-                click.echo("Fetching link data from Salesforce")
-                salesforce.download_content_document_link_list(
-                    document_link_list=document_link_list,
-                    obj_type=archivist_obj.obj_type,
-                    modified_date_gt=archivist_obj.modified_date_gt,
-                    modified_date_lt=archivist_obj.modified_date_lt,
-                    dir_name_field=archivist_obj.dir_name_field,
-                )
-            finally:
-                document_link_list.save()
-                click.echo("Data saved into {path}".format(path=document_link_list.path))
-        click.echo("Document links are loaded!")
-        return document_link_list
-
-    def _load_content_version_list(
-        self,
-        salesforce: Salesforce,
-        document_link_list: ContentDocumentLinkList,
-        archivist_obj: ArchivistObject,
-        batch_size: int = 30,
-    ) -> ContentVersionList:
-        click.echo("Loading content versions")
-        content_version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
-        if not os.path.exists(content_version_list.path):
-            try:
-                doc_id_list = [link.content_document_id for link in document_link_list.get_links().values()]
-                list_size = len(doc_id_list)
-                all_batches = ceil(list_size / batch_size)
-                progressbar: ProgressBar
-                with click.progressbar(
-                    length=all_batches,
-                    label="Fetching content versions",
-                    show_eta=False,
-                ) as progressbar:
-                    self._load_content_version_batches(
-                        doc_id_list=doc_id_list,
-                        batch_size=batch_size,
-                        all_batches=all_batches,
-                        salesforce=salesforce,
-                        content_version_list=content_version_list,
-                        progressbar=progressbar,
-                    )
-            finally:
-                content_version_list.save()
-                click.echo("Data saved into {path}".format(path=content_version_list.path))
-        click.echo("Content versions are loaded!")
-        return content_version_list
-
-    @staticmethod
-    def _load_content_version_batches(
-        doc_id_list: list[str],
-        batch_size: int,
-        all_batches: int,
-        salesforce: Salesforce,
-        content_version_list: ContentVersionList,
-        progressbar: ProgressBar | None = None,
-    ) -> None:
-        for batch in range(1, all_batches + 1):
-            start = (batch - 1) * batch_size
-            end = start + batch_size
-            doc_id_batch = doc_id_list[start:end]
-            salesforce.download_content_version_list(
-                document_ids=doc_id_batch,
-                content_version_list=content_version_list,
-            )
-            if progressbar is not None:
-                progressbar.update(batch)
-
-    def _download_object_files(
-        self,
-        salesforce: Salesforce,
-        archivist_obj: ArchivistObject,
-        document_link_list: ContentDocumentLinkList,
-        content_version_list: ContentVersionList,
-        downloaded_versions_list: DownloadedContentVersionList,
-    ) -> None:
-        os.makedirs(os.path.join(archivist_obj.data_dir, "files"), exist_ok=True)
-        queue = Queue()
-
-        for link in document_link_list.get_links().values():
-            for version in content_version_list.get_content_versions_for_link(link):
-                path = os.path.join(
-                    archivist_obj.data_dir,
-                    "files",
-                    link.download_dir_name,
-                    version.filename,
-                )
-                queue.put((version, path))
-        progressbar: ProgressBar
-        with click.progressbar(
-            length=queue.qsize(),
-            label="",
-            show_eta=False,
-        ) as progressbar:
-            try:
-                threads = []
-                for i in range(3):
-                    thread = threading.Thread(
-                        target=salesforce.content_version_downloader,
-                        kwargs={
-                            "worker_num": i,
-                            "queue": queue,
-                            "downloaded_versions_list": downloaded_versions_list,
-                            "max_api_usage_percent": self._config.max_api_usage_percent,
-                            "progressbar": progressbar,
-                        },
-                        daemon=True,
-                    )
-                    threads.append(thread)
-                    thread.start()
-
-                for thread in threads:
-                    thread.join()
-            finally:
-                downloaded_versions_list.save()
