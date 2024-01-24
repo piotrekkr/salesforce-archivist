@@ -7,9 +7,10 @@ from unittest.mock import Mock, call
 import pytest
 
 from salesforce_archivist.archivist import ArchivistObject
-from salesforce_archivist.content_version import ContentVersion
-from salesforce_archivist.document_link import ContentDocumentLink
-from salesforce_archivist.salesforce import Salesforce, SalesforceApiClient
+from salesforce_archivist.salesforce.api import SalesforceApiClient
+from salesforce_archivist.salesforce.content_version import ContentVersion
+from salesforce_archivist.salesforce.document_link import ContentDocumentLink
+from salesforce_archivist.salesforce.salesforce import Salesforce
 
 
 @pytest.mark.parametrize(
@@ -324,3 +325,12 @@ def test_salesforce_download_content_version_list_csv_reading(
             content_version_list=content_version_list,
         )
         content_version_list.add_version.assert_has_calls(add_version_calls, any_order=True)
+
+
+# @patch("os.path.exists", return_value=False)
+# @patch("os.makedirs")
+# @patch("shutil.copy")
+# def test_content_version_downloader_stop_on_empty_queue():
+#     # client = Client(sf_client=Mock())
+#     # salesforce = Salesforce(data_dir="tmpdirname", client=client, max_api_usage_percent=50)
+#     pass

@@ -8,21 +8,20 @@ from typing import Any, Generator
 
 import click
 import yaml
-from click._termui_impl import ProgressBar
 from schema import And, Optional, Or, Schema, Use
 from simple_salesforce import Salesforce as SalesforceClient
 
-from salesforce_archivist.salesforce import ContentVersionDownloaderQueue, Salesforce
-
-from .content_version import (
+from salesforce_archivist.salesforce.api import SalesforceApiClient
+from salesforce_archivist.salesforce.content_version import (
     ContentVersion,
+    ContentVersionDownloaderQueue,
     ContentVersionList,
     DownloadedContentVersionList,
     ValidatedContentVersion,
     ValidatedContentVersionList,
 )
-from .document_link import ContentDocumentLinkList
-from .salesforce import SalesforceApiClient
+from salesforce_archivist.salesforce.document_link import ContentDocumentLinkList
+from salesforce_archivist.salesforce.salesforce import Salesforce
 
 
 class ArchivistObject:
@@ -136,8 +135,8 @@ class Archivist:
         self._downloaded_version_list = DownloadedContentVersionList(self._config.data_dir)
 
     def download(self) -> None:
+        downloaded_versions_list = DownloadedContentVersionList(self._config.data_dir)
         for archivist_obj in self._config.objects:
-            os.makedirs(archivist_obj.data_dir, exist_ok=True)
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
                 client=SalesforceApiClient(self._sf_client),
@@ -147,35 +146,18 @@ class Archivist:
             document_link_list = salesforce.load_document_link_list()
             click.echo("Done.")
             click.echo("Downloading content version list.")
-            with click.progressbar(
-                length=len(document_link_list),
-                label="",
-                show_eta=False,
-            ) as progressbar:  # type: ProgressBar
-                content_version_list = salesforce.load_content_version_list(
-                    document_link_list=document_link_list, progressbar=progressbar
-                )
-
+            content_version_list = salesforce.load_content_version_list(document_link_list=document_link_list)
             click.echo("Done.")
-
             click.echo("Downloading files.")
             download_queue = ContentVersionDownloaderQueue(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
                 archivist_obj=archivist_obj,
             )
-            with click.progressbar(
-                length=len(download_queue),
-                label="",
-                show_eta=False,
-            ) as progressbar:  # type: ProgressBar
-                downloaded_versions_list = DownloadedContentVersionList(self._config.data_dir)
-                salesforce.download_files(
-                    download_queue=download_queue,
-                    downloaded_versions_list=downloaded_versions_list,
-                    progressbar=progressbar,
-                )
-            click.echo("Download complete.")
+            salesforce.download_files(
+                download_queue=download_queue,
+                downloaded_versions_list=downloaded_versions_list,
+            )
 
     def validate(self) -> None:
         validated_versions_list = ValidatedContentVersionList(self._config.data_dir)
@@ -219,7 +201,6 @@ class Archivist:
                     version.filename,
                 )
                 queue.put((version, path))
-        progressbar: ProgressBar
 
         results: list[dict[str, int]] = [
             {
@@ -230,34 +211,27 @@ class Archivist:
             for i in range(thread_num)
         ]
         threads = []
+        for i in range(thread_num):
+            results[i] = {
+                "total": 0,
+                "missing": 0,
+                "invalid": 0,
+            }
+            thread = threading.Thread(
+                target=self._content_version_validator,
+                kwargs={
+                    "worker_num": i,
+                    "queue": queue,
+                    "validated_versions_list": validated_versions_list,
+                    "result": results[i],
+                },
+                daemon=True,
+            )
+            threads.append(thread)
+            thread.start()
 
-        with click.progressbar(
-            length=queue.qsize(),
-            label="",
-            show_eta=False,
-        ) as progressbar:
-            for i in range(thread_num):
-                results[i] = {
-                    "total": 0,
-                    "missing": 0,
-                    "invalid": 0,
-                }
-                thread = threading.Thread(
-                    target=self._content_version_validator,
-                    kwargs={
-                        "worker_num": i,
-                        "queue": queue,
-                        "validated_versions_list": validated_versions_list,
-                        "result": results[i],
-                        "progressbar": progressbar,
-                    },
-                    daemon=True,
-                )
-                threads.append(thread)
-                thread.start()
-
-            for thread in threads:
-                thread.join()
+        for thread in threads:
+            thread.join()
 
         results_sum: Counter = Counter()
         for result in results:
@@ -277,7 +251,6 @@ class Archivist:
         queue: Queue,
         validated_versions_list: ValidatedContentVersionList,
         result: dict[str, int],
-        progressbar: ProgressBar | None = None,
     ) -> None:
         while True:
             try:
@@ -313,8 +286,6 @@ class Archivist:
             finally:
                 result["total"] += 1
                 queue.task_done()
-                if progressbar is not None:
-                    progressbar.update(1)
 
     @staticmethod
     def _calculate_md5(path: str) -> str:

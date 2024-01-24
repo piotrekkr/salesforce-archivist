@@ -1,9 +1,11 @@
 from unittest.mock import Mock, call
 
+import pytest
 from requests import Response
+from simple_salesforce.api import Usage
 
-from salesforce_archivist.content_version import ContentVersion
-from salesforce_archivist.salesforce import SalesforceApiClient
+from salesforce_archivist.salesforce.api import ApiUsage, SalesforceApiClient
+from salesforce_archivist.salesforce.content_version import ContentVersion
 
 
 def test_bulk2():
@@ -33,3 +35,28 @@ def test_download_content_version():
     ).call_list()
 
     assert mock_sf.mock_calls == expected_calls
+
+
+@pytest.mark.parametrize(
+    "refresh, api_usage, should_call_limits, expected_used, expected_total",
+    [
+        [False, {"api-usage": Usage(used=1, total=10)}, False, 1, 10],
+        [True, {"api-usage": Usage(used=1, total=10)}, True, 2, 20],
+        [False, {}, True, 2, 20],
+    ],
+)
+def test_get_api_usage(
+    refresh: bool, api_usage: dict[str, Usage], should_call_limits: bool, expected_used: int, expected_total
+):
+    mock_sf = Mock()
+    mock_sf.api_usage = api_usage
+    if should_call_limits:
+
+        def set_limits():
+            mock_sf.api_usage = {"api-usage": Usage(used=expected_used, total=expected_total)}
+
+        mock_sf.limits.side_effect = set_limits
+    client = SalesforceApiClient(sf_client=mock_sf)
+    result = client.get_api_usage(refresh=refresh)
+    assert isinstance(result, ApiUsage)
+    assert (expected_used, expected_total) == (result.used, result.total)

@@ -1,7 +1,7 @@
 import pytest
 from simple_salesforce.api import Usage
 
-from salesforce_archivist.salesforce import ApiUsage
+from salesforce_archivist.salesforce.api import ApiUsage
 
 
 @pytest.mark.parametrize("used, total, percent", [(15, 100, 15.0), (999, 1000, 99.9), (97, 501, 19.36)])
