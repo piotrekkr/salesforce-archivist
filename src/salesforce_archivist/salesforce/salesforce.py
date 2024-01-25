@@ -3,19 +3,15 @@ from __future__ import annotations
 import csv
 import glob
 import os.path
+import queue
 import threading
 from math import ceil
 from typing import TYPE_CHECKING
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
-from salesforce_archivist.salesforce.content_version import (
-    ContentVersion,
-    ContentVersionDownloader,
-    ContentVersionDownloaderQueue,
-    ContentVersionList,
-    DownloadedContentVersionList,
-)
-from salesforce_archivist.salesforce.document_link import ContentDocumentLink, ContentDocumentLinkList
+from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink, ContentDocumentLinkList
+from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
+from salesforce_archivist.salesforce.download import DownloadedContentVersionList, Downloader, DownloadQueue
 
 if TYPE_CHECKING:
     from salesforce_archivist.archivist import ArchivistObject
@@ -146,22 +142,31 @@ class Salesforce:
 
     def download_files(
         self,
-        download_queue: ContentVersionDownloaderQueue,
+        download_queue: DownloadQueue,
         downloaded_versions_list: DownloadedContentVersionList,
     ) -> None:
-        queue = download_queue.get_queue()
+
         try:
             threads = []
-            downloader = ContentVersionDownloader(
+            downloader = Downloader(
                 sf_client=self._client,
                 downloaded_versions_list=downloaded_versions_list,
                 max_api_usage_percent=self._max_api_usage_percent,
             )
-            total_items = queue.qsize()
+            to_download = download_queue.get_queue()
+            total_items = to_download.qsize()
+            lock = threading.Lock()
+            downloaded_queue = queue.Queue()
             for i in range(3):
                 thread = threading.Thread(
                     target=downloader.download_content_versions_in_queue,
-                    kwargs={"worker_num": i, "queue": queue, "queue_size": total_items},
+                    kwargs={
+                        "worker_num": i,
+                        "download_queue": to_download,
+                        "download_count": total_items,
+                        "downloaded_queue": downloaded_queue,
+                        "lock": lock,
+                    },
                     daemon=True,
                 )
                 threads.append(thread)

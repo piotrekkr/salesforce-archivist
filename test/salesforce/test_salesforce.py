@@ -8,8 +8,8 @@ import pytest
 
 from salesforce_archivist.archivist import ArchivistObject
 from salesforce_archivist.salesforce.api import SalesforceApiClient
+from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink
 from salesforce_archivist.salesforce.content_version import ContentVersion
-from salesforce_archivist.salesforce.document_link import ContentDocumentLink
 from salesforce_archivist.salesforce.salesforce import Salesforce
 
 

@@ -12,16 +12,11 @@ from schema import And, Optional, Or, Schema, Use
 from simple_salesforce import Salesforce as SalesforceClient
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
-from salesforce_archivist.salesforce.content_version import (
-    ContentVersion,
-    ContentVersionDownloaderQueue,
-    ContentVersionList,
-    DownloadedContentVersionList,
-    ValidatedContentVersion,
-    ValidatedContentVersionList,
-)
-from salesforce_archivist.salesforce.document_link import ContentDocumentLinkList
+from salesforce_archivist.salesforce.content_document_link import ContentDocumentLinkList
+from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
+from salesforce_archivist.salesforce.download import DownloadedContentVersionList, DownloadQueue
 from salesforce_archivist.salesforce.salesforce import Salesforce
+from salesforce_archivist.salesforce.validation import ValidatedContentVersion, ValidatedContentVersionList
 
 
 class ArchivistObject:
@@ -149,7 +144,7 @@ class Archivist:
             content_version_list = salesforce.load_content_version_list(document_link_list=document_link_list)
             click.echo("Done.")
             click.echo("Downloading files.")
-            download_queue = ContentVersionDownloaderQueue(
+            download_queue = DownloadQueue(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
                 archivist_obj=archivist_obj,
