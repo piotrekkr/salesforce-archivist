@@ -2,14 +2,14 @@ import csv
 import os.path
 import tempfile
 from datetime import datetime, timezone
-from unittest.mock import Mock, call
+from unittest.mock import ANY, Mock, call, patch
 
 import pytest
 
 from salesforce_archivist.archivist import ArchivistObject
 from salesforce_archivist.salesforce.api import SalesforceApiClient
 from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink
-from salesforce_archivist.salesforce.content_version import ContentVersion
+from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
 from salesforce_archivist.salesforce.salesforce import Salesforce
 
 
@@ -327,10 +327,73 @@ def test_salesforce_download_content_version_list_csv_reading(
         content_version_list.add_version.assert_has_calls(add_version_calls, any_order=True)
 
 
-# @patch("os.path.exists", return_value=False)
-# @patch("os.makedirs")
-# @patch("shutil.copy")
-# def test_content_version_downloader_stop_on_empty_queue():
-#     # client = Client(sf_client=Mock())
-#     # salesforce = Salesforce(data_dir="tmpdirname", client=client, max_api_usage_percent=50)
-#     pass
+@patch.object(Salesforce, "download_content_version_list")
+@patch.object(ContentVersionList, "data_file_exist", return_value=False)
+@patch.object(ContentVersionList, "save", return_value=None)
+def test_salesforce_load_content_version_list_will_call_download_and_save(save_mock, exist_mock, download_mock):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        link_list = []
+        doc_ids = []
+        for i in range(3):
+            link = ContentDocumentLink(
+                linked_entity_id="LID{}".format(i),
+                content_document_id="DID{}".format(i),
+                download_dir_name="LID{}".format(i),
+            )
+            link_list.append(link)
+            doc_ids.append(link.content_document_id)
+        doc_link_list = Mock()
+        doc_link_list.get_links.return_value.values.return_value = link_list
+        client = SalesforceApiClient(sf_client=Mock())
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
+        salesforce.load_content_version_list(document_link_list=doc_link_list, batch_size=10)
+        download_mock.assert_called_once_with(document_ids=doc_ids, content_version_list=ANY)
+        save_mock.assert_called_once()
+
+
+@patch.object(Salesforce, "download_content_version_list")
+@patch.object(ContentVersionList, "data_file_exist", return_value=False)
+@patch.object(ContentVersionList, "save", return_value=None)
+def test_salesforce_load_content_version_list_will_call_download_in_batches(save_mock, exist_mock, download_mock):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        link_list = []
+        doc_ids = []
+        for i in range(3):
+            link = ContentDocumentLink(
+                linked_entity_id="LID{}".format(i),
+                content_document_id="DID{}".format(i),
+                download_dir_name="LID{}".format(i),
+            )
+            link_list.append(link)
+            doc_ids.append(link.content_document_id)
+        doc_link_list = Mock()
+        doc_link_list.get_links.return_value.values.return_value = link_list
+        client = SalesforceApiClient(sf_client=Mock())
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
+        salesforce.load_content_version_list(document_link_list=doc_link_list, batch_size=1)
+        download_mock.assert_has_calls(
+            calls=[
+                call(document_ids=["DID0"], content_version_list=ANY),
+                call(document_ids=["DID1"], content_version_list=ANY),
+                call(document_ids=["DID2"], content_version_list=ANY),
+            ]
+        )
+
+
+@patch.object(Salesforce, "download_content_version_list")
+@patch.object(ContentVersionList, "data_file_exist", return_value=True)
+@patch.object(ContentVersionList, "load_data_from_file", return_value=None)
+@patch.object(ContentVersionList, "save", return_value=None)
+def test_salesforce_load_content_version_list_will_load_from_file(
+    save_mock, load_mock, exist_mock, download_mock
+):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        doc_link_list = Mock()
+        client = SalesforceApiClient(sf_client=Mock())
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
+        salesforce.load_content_version_list(document_link_list=doc_link_list, batch_size=1)
+        load_mock.assert_called_once()
+        save_mock.assert_not_called()

@@ -59,10 +59,11 @@ class ContentVersionList:
         self._data: dict[str, ContentVersion] = {}
         self._path = os.path.join(data_dir, "content_versions.csv")
         self._doc_versions_map: dict[str, set[str]] = {}
-        if os.path.exists(self._path):
-            self._load_data()
 
-    def _load_data(self) -> None:
+    def data_file_exist(self) -> bool:
+        return os.path.exists(self._path)
+
+    def load_data_from_file(self) -> None:
         with open(self._path) as file:
             reader = csv.reader(file)
             next(reader)

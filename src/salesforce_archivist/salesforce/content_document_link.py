@@ -49,10 +49,11 @@ class ContentDocumentLinkList:
         self._data: dict[str, ContentDocumentLink] = {}
         self._path = os.path.join(data_dir, "document_links.csv")
         self._dir_name_field = dir_name_field
-        if os.path.exists(self._path):
-            self._load_data()
 
-    def _load_data(self) -> None:
+    def data_file_exist(self) -> bool:
+        return os.path.exists(self._path)
+
+    def load_data_from_file(self) -> None:
         with open(self._path) as file:
             reader = csv.reader(file)
             next(reader)

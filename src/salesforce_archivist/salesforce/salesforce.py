@@ -84,11 +84,14 @@ class Salesforce:
         document_link_list = ContentDocumentLinkList(
             data_dir=self._archivist_obj.data_dir, dir_name_field=self._archivist_obj.dir_name_field
         )
-        if not os.path.exists(document_link_list.path):
+        if not document_link_list.data_file_exist():
             try:
                 self.download_content_document_link_list(document_link_list=document_link_list)
             finally:
                 document_link_list.save()
+        else:
+            document_link_list.load_data_from_file()
+
         return document_link_list
 
     def load_content_version_list(
@@ -97,7 +100,7 @@ class Salesforce:
         batch_size: int = 3000,
     ) -> ContentVersionList:
         content_version_list = ContentVersionList(data_dir=self._archivist_obj.data_dir)
-        if not os.path.exists(content_version_list.path):
+        if not content_version_list.data_file_exist():
             try:
                 doc_id_list = [link.content_document_id for link in document_link_list.get_links().values()]
                 list_size = len(doc_id_list)
@@ -113,6 +116,9 @@ class Salesforce:
                     )
             finally:
                 content_version_list.save()
+        else:
+            content_version_list.load_data_from_file()
+
         return content_version_list
 
     def download_content_version_list(
