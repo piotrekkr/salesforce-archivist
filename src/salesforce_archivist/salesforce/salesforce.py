@@ -3,15 +3,17 @@ from __future__ import annotations
 import csv
 import glob
 import os.path
-import queue
-import threading
 from math import ceil
 from typing import TYPE_CHECKING
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
 from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink, ContentDocumentLinkList
 from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
-from salesforce_archivist.salesforce.download import DownloadedContentVersionList, Downloader, DownloadQueue
+from salesforce_archivist.salesforce.download import (
+    ContentVersionDownloader,
+    DownloadedContentVersionList,
+    DownloadContentVersionList,
+)
 
 if TYPE_CHECKING:
     from salesforce_archivist.archivist import ArchivistObject
@@ -102,7 +104,7 @@ class Salesforce:
         content_version_list = ContentVersionList(data_dir=self._archivist_obj.data_dir)
         if not content_version_list.data_file_exist():
             try:
-                doc_id_list = [link.content_document_id for link in document_link_list.get_links().values()]
+                doc_id_list = [link.content_document_id for link in document_link_list]
                 list_size = len(doc_id_list)
                 all_batches = ceil(list_size / batch_size)
 
@@ -148,37 +150,17 @@ class Salesforce:
 
     def download_files(
         self,
-        download_queue: DownloadQueue,
-        downloaded_versions_list: DownloadedContentVersionList,
+        download_content_version_list: DownloadContentVersionList,
+        downloaded_content_version_list: DownloadedContentVersionList,
+        max_workers: int = 3,
     ) -> None:
-
         try:
-            threads = []
-            downloader = Downloader(
+            downloader = ContentVersionDownloader(
                 sf_client=self._client,
-                downloaded_versions_list=downloaded_versions_list,
+                downloaded_version_list=downloaded_content_version_list,
                 max_api_usage_percent=self._max_api_usage_percent,
+                download_content_version_list=download_content_version_list,
             )
-            to_download = download_queue.get_queue()
-            total_items = to_download.qsize()
-            lock = threading.Lock()
-            downloaded_queue = queue.Queue()
-            for i in range(3):
-                thread = threading.Thread(
-                    target=downloader.download_content_versions_in_queue,
-                    kwargs={
-                        "worker_num": i,
-                        "download_queue": to_download,
-                        "download_count": total_items,
-                        "downloaded_queue": downloaded_queue,
-                        "lock": lock,
-                    },
-                    daemon=True,
-                )
-                threads.append(thread)
-                thread.start()
-
-            for thread in threads:
-                thread.join()
+            downloader.download(max_workers)
         finally:
-            downloaded_versions_list.save()
+            downloaded_content_version_list.save()

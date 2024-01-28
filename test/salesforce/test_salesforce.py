@@ -2,7 +2,7 @@ import csv
 import os.path
 import tempfile
 from datetime import datetime, timezone
-from unittest.mock import ANY, Mock, call, patch
+from unittest.mock import ANY, Mock, call, patch, MagicMock
 
 import pytest
 
@@ -343,8 +343,8 @@ def test_salesforce_load_content_version_list_will_call_download_and_save(save_m
             )
             link_list.append(link)
             doc_ids.append(link.content_document_id)
-        doc_link_list = Mock()
-        doc_link_list.get_links.return_value.values.return_value = link_list
+        doc_link_list = MagicMock()
+        doc_link_list.__iter__.return_value = link_list
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         ret_val = salesforce.load_content_version_list(document_link_list=doc_link_list, batch_size=10)
@@ -369,8 +369,8 @@ def test_salesforce_load_content_version_list_will_call_download_in_batches(save
             )
             link_list.append(link)
             doc_ids.append(link.content_document_id)
-        doc_link_list = Mock()
-        doc_link_list.get_links.return_value.values.return_value = link_list
+        doc_link_list = MagicMock()
+        doc_link_list.__iter__.return_value=link_list
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         ret_val = salesforce.load_content_version_list(document_link_list=doc_link_list, batch_size=1)

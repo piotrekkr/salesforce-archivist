@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import concurrent.futures
 import csv
 import os
 import shutil
 import threading
-from queue import Empty, Queue
 from time import sleep
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 import click
 
@@ -78,7 +78,7 @@ class DownloadedContentVersionList:
         return self._data.get(content_version.id)
 
 
-class DownloadQueue:
+class DownloadContentVersionList:
     def __init__(
         self,
         document_link_list: ContentDocumentLinkList,
@@ -88,38 +88,36 @@ class DownloadQueue:
         self._document_link_list = document_link_list
         self._content_version_list = content_version_list
         self._archivist_obj = archivist_obj
-        self._queue: Queue | None = None
 
-    def get_queue(self) -> Queue:
-        if self._queue is None:
-            self._queue = Queue()
-            for link in self._document_link_list.get_links().values():
-                for version in self._content_version_list.get_content_versions_for_link(link):
-                    path = os.path.join(
-                        self._archivist_obj.data_dir,
-                        "files",
-                        link.download_dir_name,
-                        version.filename,
-                    )
-                    self._queue.put((version, path))
-        return self._queue
-
-    def __len__(self) -> int:
-        return self.get_queue().qsize()
+    def __iter__(self) -> Generator[tuple[ContentVersion, str], None, None]:
+        for link in self._document_link_list:
+            for version in self._content_version_list.get_content_versions_for_link(link):
+                path = os.path.join(
+                    self._archivist_obj.data_dir,
+                    "files",
+                    link.download_dir_name,
+                    version.filename,
+                )
+                yield version, path
 
 
-class Downloader:
+class ContentVersionDownloader:
     def __init__(
         self,
         sf_client: SalesforceApiClient,
-        downloaded_versions_list: DownloadedContentVersionList,
+        download_content_version_list: DownloadContentVersionList,
+        downloaded_version_list: DownloadedContentVersionList,
         max_api_usage_percent: float | None = None,
+        wait_sec: int = 300,
     ):
         self._client = sf_client
-        self._downloaded_versions_list = downloaded_versions_list
+        self._downloaded_versions_list = downloaded_version_list
         self._max_api_usage_percent = max_api_usage_percent
+        self._download_list: list[tuple[ContentVersion, str]] = [vp for vp in download_content_version_list]
+        self._downloaded_list: list[tuple[ContentVersion, str]] = []
+        self._wait_sec = wait_sec
 
-    def download_content_version(self, version: ContentVersion, download_path: str) -> None:
+    def _download_from_salesforce(self, version: ContentVersion, download_path: str) -> None:
         downloaded_version = self._downloaded_versions_list.get_version(version)
         # file exist under the path that we want to download into
         if os.path.exists(download_path):
@@ -155,61 +153,51 @@ class Downloader:
             )
             self._downloaded_versions_list.add_version(downloaded_version)
 
-    def _print_download_msg(
-        self, queue_size: int, worker_num: int, api_usage: float, msg: str, downloaded_size: int
-    ) -> None:
-        percent = downloaded_size / queue_size * 100
-        item_padded = "{{:{width}d}}".format(width=len(str(queue_size))).format(downloaded_size)
+    def _print_download_msg(self, msg: str) -> None:
+        total_size = len(self._download_list)
+        try:
+            api_usage: float = self._client.get_api_usage().percent
+        except Exception:
+            api_usage = 0.0
+
+        downloaded_size = len(self._downloaded_list)
+        percent = downloaded_size / total_size * 100
+        item_padded = "{{:{width}d}}".format(width=len(str(total_size))).format(downloaded_size)
         click.echo(
-            "[💾{downloaded}/{total} {percent:6.2f}%] [🤖️{worker:2d}] [☁️{usage:6.2f}%] {msg}".format(
-                downloaded=item_padded, percent=percent, total=queue_size, worker=worker_num, usage=api_usage, msg=msg
+            "[💾{downloaded}/{total} {percent:6.2f}%] [☁️{usage:6.2f}%] {msg}".format(
+                downloaded=item_padded, percent=percent, total=total_size, usage=api_usage, msg=msg
             )
         )
 
-    def download_content_versions_in_queue(
-        self, download_queue: Queue, download_count: int, worker_num: int, lock: threading.Lock, downloaded_queue: Queue
-    ) -> None:
-        while True:
-            try:
-                queue_item: tuple[ContentVersion, str] = download_queue.get_nowait()
-            except Empty:
-                break
-            api_usage: float = 0.0
-            version, download_path = queue_item
-            msg = "[OK] Downloaded content version {id} into {path}".format(
+    def _download_or_wait(self, version: ContentVersion, download_path: str, lock: threading.Lock) -> None:
+        msg = "[OK] Downloaded content version {id} into {path}".format(
+            id=version.id,
+            path=download_path,
+        )
+        try:
+            self._download_from_salesforce(version=version, download_path=download_path)
+            self._client.get_api_usage()
+            self._wait_if_api_usage_limit()
+        except Exception as e:
+            msg = "[ERROR] Failed to download content version {id}: {error}".format(
                 id=version.id,
-                path=download_path,
+                error=e,
             )
-            try:
-                self.download_content_version(version=version, download_path=download_path)
-                api_usage = self._client.get_api_usage().percent
-                self.wait_if_api_usage_limit(worker_num=worker_num)
-            except Exception as e:
-                msg = "[ERROR] Failed to download content version {id}: {error}".format(
-                    id=queue_item[0].id,
-                    error=e,
-                )
-            finally:
-                with lock:
-                    downloaded_queue.put(queue_item)
-                    self._print_download_msg(
-                        queue_size=download_count,
-                        worker_num=worker_num,
-                        api_usage=api_usage,
-                        msg=msg,
-                        downloaded_size=downloaded_queue.qsize(),
-                    )
-                download_queue.task_done()
+        finally:
+            with lock:
+                self._downloaded_list.append((version, download_path))
+                self._print_download_msg(msg)
 
-    def wait_if_api_usage_limit(self, worker_num: int, sleep_sec: int = 300, verbose: bool = False) -> None:
+    def download(self, max_workers: int = 5):
+        lock = threading.Lock()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for version, download_path in self._download_list:
+                executor.submit(self._download_or_wait, version=version, download_path=download_path, lock=lock)
+
+    def _wait_if_api_usage_limit(self) -> None:
         if self._max_api_usage_percent is not None:
             usage = self._client.get_api_usage()
             while usage.percent >= self._max_api_usage_percent:
-                if verbose:
-                    click.echo(
-                        "[W:{worker}][API usage: {usage:.2f}%] [NOTICE] Waiting for API limit to drop.".format(
-                            worker=worker_num, usage=usage.percent
-                        )
-                    )
-                sleep(sleep_sec)
+                self._print_download_msg(msg="[NOTICE] Waiting for API limit to drop.")
+                sleep(self._wait_sec)
                 usage = self._client.get_api_usage(refresh=True)

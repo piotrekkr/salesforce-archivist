@@ -14,7 +14,7 @@ from simple_salesforce import Salesforce as SalesforceClient
 from salesforce_archivist.salesforce.api import SalesforceApiClient
 from salesforce_archivist.salesforce.content_document_link import ContentDocumentLinkList
 from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
-from salesforce_archivist.salesforce.download import DownloadedContentVersionList, DownloadQueue
+from salesforce_archivist.salesforce.download import DownloadedContentVersionList, DownloadContentVersionList
 from salesforce_archivist.salesforce.salesforce import Salesforce
 from salesforce_archivist.salesforce.validation import ValidatedContentVersion, ValidatedContentVersionList
 
@@ -130,7 +130,7 @@ class Archivist:
         self._downloaded_version_list = DownloadedContentVersionList(self._config.data_dir)
 
     def download(self) -> None:
-        downloaded_versions_list = DownloadedContentVersionList(self._config.data_dir)
+        downloaded_content_versions_list = DownloadedContentVersionList(self._config.data_dir)
         for archivist_obj in self._config.objects:
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
@@ -144,14 +144,14 @@ class Archivist:
             content_version_list = salesforce.load_content_version_list(document_link_list=document_link_list)
             click.echo("Done.")
             click.echo("Downloading files.")
-            download_queue = DownloadQueue(
+            download_list = DownloadContentVersionList(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
                 archivist_obj=archivist_obj,
             )
             salesforce.download_files(
-                download_queue=download_queue,
-                downloaded_versions_list=downloaded_versions_list,
+                download_content_version_list=download_list,
+                downloaded_content_version_list=downloaded_content_versions_list,
             )
 
     def validate(self) -> None:
@@ -187,7 +187,7 @@ class Archivist:
     ) -> None:
         queue: Queue = Queue()
 
-        for link in document_link_list.get_links().values():
+        for link in document_link_list:
             for version in content_version_list.get_content_versions_for_link(link):
                 path = os.path.join(
                     archivist_obj.data_dir,

@@ -1,6 +1,6 @@
 import csv
 import os.path
-from typing import Any
+from typing import Any, Generator
 
 
 class ContentDocumentLink:
@@ -92,8 +92,9 @@ class ContentDocumentLinkList:
     def path(self) -> str:
         return self._path
 
-    def get_links(self) -> dict[str, ContentDocumentLink]:
-        return self._data
+    def __iter__(self) -> Generator[ContentDocumentLink, None, None]:
+        for link in self._data.values():
+            yield link
 
     def __len__(self) -> int:
         return len(self._data)

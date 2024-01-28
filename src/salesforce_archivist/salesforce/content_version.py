@@ -1,7 +1,7 @@
 import csv
 import os.path
 import re
-from typing import Any
+from typing import Any, Generator
 
 from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink
 
@@ -96,12 +96,10 @@ class ContentVersionList:
         self._doc_versions_map[version.document_id].add(version.id)
         self._data[version.id] = version
 
-    def get_content_versions_for_link(self, link: ContentDocumentLink) -> list[ContentVersion]:
-        versions = []
+    def get_content_versions_for_link(self, link: ContentDocumentLink) -> Generator[ContentVersion, None, None]:
         if link.content_document_id in self._doc_versions_map:
             for version_id in self._doc_versions_map[link.content_document_id]:
-                versions.append(self._data[version_id])
-        return versions
+                yield self._data[version_id]
 
     @property
     def path(self) -> str:
