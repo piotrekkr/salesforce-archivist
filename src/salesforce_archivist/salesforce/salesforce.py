@@ -11,9 +11,10 @@ from salesforce_archivist.salesforce.content_document_link import ContentDocumen
 from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
 from salesforce_archivist.salesforce.download import (
     ContentVersionDownloader,
-    DownloadedContentVersionList,
     DownloadContentVersionList,
+    DownloadedContentVersionList,
 )
+from salesforce_archivist.salesforce.validation import ContentVersionDownloadValidator, ValidatedContentVersionList
 
 if TYPE_CHECKING:
     from salesforce_archivist.archivist import ArchivistObject
@@ -152,7 +153,7 @@ class Salesforce:
         self,
         download_content_version_list: DownloadContentVersionList,
         downloaded_content_version_list: DownloadedContentVersionList,
-        max_workers: int = 3,
+        max_workers: int = 5,
     ) -> None:
         try:
             downloader = ContentVersionDownloader(
@@ -164,3 +165,18 @@ class Salesforce:
             downloader.download(max_workers)
         finally:
             downloaded_content_version_list.save()
+
+    @staticmethod
+    def validate_download(
+        download_content_version_list: DownloadContentVersionList,
+        validated_content_version_list: ValidatedContentVersionList,
+        max_workers: int = 5,
+    ) -> dict[str, int]:
+        try:
+            downloader = ContentVersionDownloadValidator(
+                download_content_version_list=download_content_version_list,
+                validated_content_version_list=validated_content_version_list,
+            )
+            return downloader.validate(max_workers)
+        finally:
+            validated_content_version_list.save()

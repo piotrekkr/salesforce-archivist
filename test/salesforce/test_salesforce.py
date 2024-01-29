@@ -2,7 +2,7 @@ import csv
 import os.path
 import tempfile
 from datetime import datetime, timezone
-from unittest.mock import ANY, Mock, call, patch, MagicMock
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pytest
 
@@ -370,7 +370,7 @@ def test_salesforce_load_content_version_list_will_call_download_in_batches(save
             link_list.append(link)
             doc_ids.append(link.content_document_id)
         doc_link_list = MagicMock()
-        doc_link_list.__iter__.return_value=link_list
+        doc_link_list.__iter__.return_value = link_list
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         ret_val = salesforce.load_content_version_list(document_link_list=doc_link_list, batch_size=1)
@@ -430,3 +430,25 @@ def test_salesforce_load_document_link_list_will_load_from_file(save_mock, load_
         load_mock.assert_called_once()
         download_mock.assert_not_called()
         save_mock.assert_not_called()
+
+
+# from concurrent.futures import ThreadPoolExecutor
+#
+# @patch.object(Downloader, "download_content_versions_in_queue")
+# @patch.object(DownloadedContentVersionList, "save")
+# @patch.object(ThreadPoolExecutor, "submit")
+# def test_salesforce_download_files(downloaded_version_list_save_mock, downloader_mock):
+#     data_dir = "/fake/dir"
+#     archivist_obj = ArchivistObject(data_dir=data_dir, obj_type="User", config={})
+#     client = SalesforceApiClient(sf_client=Mock())
+#     salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
+#     doc_link_list = ContentDocumentLinkList(data_dir=data_dir)
+#     version_list = ContentVersionList(data_dir=data_dir)
+#     download_queue = DownloadQueue(
+#         document_link_list=doc_link_list,
+#         content_version_list=version_list,
+#         archivist_obj=archivist_obj
+#     )
+#     downloaded_list = DownloadedContentVersionList(data_dir=data_dir)
+#     worker_num = 2
+#     salesforce.download_files(download_queue=download_queue, downloaded_versions_list=downloaded_list, worker_num=worker_num)

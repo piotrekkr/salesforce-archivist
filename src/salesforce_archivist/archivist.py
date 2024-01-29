@@ -1,9 +1,5 @@
 import datetime
-import hashlib
 import os.path
-import threading
-from collections import Counter
-from queue import Empty, Queue
 from typing import Any, Generator
 
 import click
@@ -12,11 +8,9 @@ from schema import And, Optional, Or, Schema, Use
 from simple_salesforce import Salesforce as SalesforceClient
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
-from salesforce_archivist.salesforce.content_document_link import ContentDocumentLinkList
-from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
-from salesforce_archivist.salesforce.download import DownloadedContentVersionList, DownloadContentVersionList
+from salesforce_archivist.salesforce.download import DownloadContentVersionList, DownloadedContentVersionList
 from salesforce_archivist.salesforce.salesforce import Salesforce
-from salesforce_archivist.salesforce.validation import ValidatedContentVersion, ValidatedContentVersionList
+from salesforce_archivist.salesforce.validation import ValidatedContentVersionList
 
 
 class ArchivistObject:
@@ -131,6 +125,9 @@ class Archivist:
 
     def download(self) -> None:
         downloaded_content_versions_list = DownloadedContentVersionList(self._config.data_dir)
+        if downloaded_content_versions_list.data_file_exist():
+            downloaded_content_versions_list.load_data_from_file()
+
         for archivist_obj in self._config.objects:
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
@@ -156,136 +153,30 @@ class Archivist:
 
     def validate(self) -> None:
         validated_versions_list = ValidatedContentVersionList(self._config.data_dir)
-        try:
-            for archivist_obj in self._config.objects:
-                os.makedirs(archivist_obj.data_dir, exist_ok=True)
-                salesforce = Salesforce(
-                    archivist_obj=archivist_obj,
-                    client=SalesforceApiClient(self._sf_client),
-                    max_api_usage_percent=self._config.max_api_usage_percent,
-                )
-                document_link_list = salesforce.load_document_link_list()
-                content_version_list = salesforce.load_content_version_list(
-                    document_link_list=document_link_list,
-                )
-                self._validate_object_files(
-                    archivist_obj=archivist_obj,
-                    document_link_list=document_link_list,
-                    content_version_list=content_version_list,
-                    validated_versions_list=validated_versions_list,
-                )
-        finally:
-            validated_versions_list.save()
+        if validated_versions_list.data_file_exist():
+            validated_versions_list.load_data_from_file()
 
-    def _validate_object_files(
-        self,
-        archivist_obj: ArchivistObject,
-        document_link_list: ContentDocumentLinkList,
-        content_version_list: ContentVersionList,
-        validated_versions_list: ValidatedContentVersionList,
-        thread_num: int = 3,
-    ) -> None:
-        queue: Queue = Queue()
-
-        for link in document_link_list:
-            for version in content_version_list.get_content_versions_for_link(link):
-                path = os.path.join(
-                    archivist_obj.data_dir,
-                    "files",
-                    link.download_dir_name,
-                    version.filename,
-                )
-                queue.put((version, path))
-
-        results: list[dict[str, int]] = [
-            {
-                "total": 0,
-                "missing": 0,
-                "invalid": 0,
-            }
-            for i in range(thread_num)
-        ]
-        threads = []
-        for i in range(thread_num):
-            results[i] = {
-                "total": 0,
-                "missing": 0,
-                "invalid": 0,
-            }
-            thread = threading.Thread(
-                target=self._content_version_validator,
-                kwargs={
-                    "worker_num": i,
-                    "queue": queue,
-                    "validated_versions_list": validated_versions_list,
-                    "result": results[i],
-                },
-                daemon=True,
+        for archivist_obj in self._config.objects:
+            salesforce = Salesforce(
+                archivist_obj=archivist_obj,
+                client=SalesforceApiClient(self._sf_client),
+                max_api_usage_percent=self._config.max_api_usage_percent,
             )
-            threads.append(thread)
-            thread.start()
-
-        for thread in threads:
-            thread.join()
-
-        results_sum: Counter = Counter()
-        for result in results:
-            results_sum.update(result)
-        final_result = dict(results_sum)
-
-        click.echo("Total paths processed: {total}, missing: {missing}, invalid: {invalid}".format(**final_result))
-        click.echo(
-            "[{result}] Validation finished.".format(
-                result="OK" if final_result["missing"] == 0 and final_result["invalid"] == 0 else "FAILED"
+            document_link_list = salesforce.load_document_link_list()
+            content_version_list = salesforce.load_content_version_list(
+                document_link_list=document_link_list,
             )
-        )
 
-    def _content_version_validator(
-        self,
-        worker_num: int,
-        queue: Queue,
-        validated_versions_list: ValidatedContentVersionList,
-        result: dict[str, int],
-    ) -> None:
-        while True:
-            try:
-                queue_item: tuple[ContentVersion, str] = queue.get_nowait()
-            except Empty:
-                break
-
-            version, path = queue_item
-            try:
-                if not os.path.exists(path):
-                    click.echo("[W:{worker}] [ERROR] File does not exist: {path}".format(path=path, worker=worker_num))
-                    result["missing"] += 1
-                    continue
-                if (validated_version := validated_versions_list.get_version(path)) is not None:
-                    if version.checksum != validated_version.checksum:
-                        click.echo(
-                            "[W:{worker}] [ERROR] File checksum invalid: {path}".format(path=path, worker=worker_num)
-                        )
-                        result["invalid"] += 1
-                        continue
-                checksum = self._calculate_md5(path)
-                if version.checksum != checksum:
-                    click.echo(
-                        "[W:{worker}] [ERROR] File checksum invalid: {path}".format(path=path, worker=worker_num)
-                    )
-                    result["invalid"] += 1
-                validated_versions_list.add_version(ValidatedContentVersion(path=path, checksum=checksum))
-            except Exception as e:
-                click.echo(
-                    '[W:{worker}] [ERROR] Exception "{e}" occurred: {path}'.format(path=path, worker=worker_num, e=e)
-                )
-                result["invalid"] += 1
-            finally:
-                result["total"] += 1
-                queue.task_done()
-
-    @staticmethod
-    def _calculate_md5(path: str) -> str:
-        hash_md5 = hashlib.md5()
-        with open(path, "rb") as f:
-            while chunk := f.read(4096):
-                hash_md5.update(chunk)
-        return hash_md5.hexdigest()
+            download_list = DownloadContentVersionList(
+                document_link_list=document_link_list,
+                content_version_list=content_version_list,
+                archivist_obj=archivist_obj,
+            )
+            stats = salesforce.validate_download(
+                download_content_version_list=download_list, validated_content_version_list=validated_versions_list
+            )
+            click.echo("Total downloads {total}, processed {processed}, invalid: {invalid}".format(**stats))
+            click.secho(
+                "[{result}] Validation finished.".format(result="OK" if stats["invalid"] == 0 else "FAILED"),
+                fg="red" if stats["invalid"] > 0 else None,
+            )

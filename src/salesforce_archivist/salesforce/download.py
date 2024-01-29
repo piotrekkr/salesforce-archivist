@@ -41,10 +41,11 @@ class DownloadedContentVersionList:
     def __init__(self, data_dir: str):
         self._data: dict[str, DownloadedContentVersion] = {}
         self._path = os.path.join(data_dir, "downloaded_versions.csv")
-        if os.path.exists(self._path):
-            self._load_data()
 
-    def _load_data(self) -> None:
+    def data_file_exist(self) -> bool:
+        return os.path.exists(self._path)
+
+    def load_data_from_file(self) -> None:
         with open(self._path) as file:
             reader = csv.reader(file)
             next(reader)
@@ -153,7 +154,7 @@ class ContentVersionDownloader:
             )
             self._downloaded_versions_list.add_version(downloaded_version)
 
-    def _print_download_msg(self, msg: str) -> None:
+    def _print_download_msg(self, msg: str, error: bool = False) -> None:
         total_size = len(self._download_list)
         try:
             api_usage: float = self._client.get_api_usage().percent
@@ -163,10 +164,16 @@ class ContentVersionDownloader:
         downloaded_size = len(self._downloaded_list)
         percent = downloaded_size / total_size * 100
         item_padded = "{{:{width}d}}".format(width=len(str(total_size))).format(downloaded_size)
-        click.echo(
-            "[💾{downloaded}/{total} {percent:6.2f}%] [☁️{usage:6.2f}%] {msg}".format(
-                downloaded=item_padded, percent=percent, total=total_size, usage=api_usage, msg=msg
-            )
+        click.secho(
+            "[{emoji} {downloaded}/{total} {percent:6.2f}%] [☁️{usage:6.2f}%] {msg}".format(
+                emoji="💾" if not error else "❌",
+                downloaded=item_padded,
+                percent=percent,
+                total=total_size,
+                usage=api_usage,
+                msg=msg,
+            ),
+            fg="red" if error else None,
         )
 
     def _download_or_wait(self, version: ContentVersion, download_path: str, lock: threading.Lock) -> None:
@@ -174,6 +181,7 @@ class ContentVersionDownloader:
             id=version.id,
             path=download_path,
         )
+        error = False
         try:
             self._download_from_salesforce(version=version, download_path=download_path)
             self._client.get_api_usage()
@@ -183,10 +191,11 @@ class ContentVersionDownloader:
                 id=version.id,
                 error=e,
             )
+            error = True
         finally:
             with lock:
                 self._downloaded_list.append((version, download_path))
-                self._print_download_msg(msg)
+                self._print_download_msg(msg, error=error)
 
     def download(self, max_workers: int = 5):
         lock = threading.Lock()
