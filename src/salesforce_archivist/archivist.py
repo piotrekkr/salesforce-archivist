@@ -135,7 +135,7 @@ class Archivist:
                 max_api_usage_percent=self._config.max_api_usage_percent,
             )
             click.echo("Downloading document link list.")
-            document_link_list = salesforce.load_document_link_list()
+            document_link_list = salesforce.load_content_document_link_list()
             click.echo("Done.")
             click.echo("Downloading content version list.")
             content_version_list = salesforce.load_content_version_list(document_link_list=document_link_list)
@@ -162,7 +162,7 @@ class Archivist:
                 client=SalesforceApiClient(self._sf_client),
                 max_api_usage_percent=self._config.max_api_usage_percent,
             )
-            document_link_list = salesforce.load_document_link_list()
+            document_link_list = salesforce.load_content_document_link_list()
             content_version_list = salesforce.load_content_version_list(
                 document_link_list=document_link_list,
             )
@@ -175,8 +175,8 @@ class Archivist:
             stats = salesforce.validate_download(
                 download_content_version_list=download_list, validated_content_version_list=validated_versions_list
             )
-            click.echo("Total downloads {total}, processed {processed}, invalid: {invalid}".format(**stats))
-            click.secho(
-                "[{result}] Validation finished.".format(result="OK" if stats["invalid"] == 0 else "FAILED"),
-                fg="red" if stats["invalid"] > 0 else None,
-            )
+            click.echo("Processed {processed} downloads. Found {invalid} invalid downloads".format(**stats))
+            if stats["invalid"] > 0:
+                click.secho("[FAILED] Validation finished with errors.", fg="red")
+            else:
+                click.secho("[SUCCESS] Validation finished without any errors.", fg="green")

@@ -10,7 +10,9 @@ from salesforce_archivist.archivist import ArchivistObject
 from salesforce_archivist.salesforce.api import SalesforceApiClient
 from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink, ContentDocumentLinkList
 from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
+from salesforce_archivist.salesforce.download import ContentVersionDownloader
 from salesforce_archivist.salesforce.salesforce import Salesforce
+from salesforce_archivist.salesforce.validation import ContentVersionDownloadValidator
 
 
 @pytest.mark.parametrize(
@@ -104,7 +106,7 @@ from salesforce_archivist.salesforce.salesforce import Salesforce
         ),
     ],
 )
-def test_salesforce_download_content_document_link_list_queries(
+def test_download_content_document_link_list_queries(
     modified_date_lt: datetime | None,
     modified_date_gt: datetime | None,
     dir_name_field: str | None,
@@ -179,7 +181,7 @@ def gen_csv(data: list[list[str]], dir_name: str):
         ],
     ],
 )
-def test_salesforce_download_content_document_link_list_csv_reading(
+def test_download_content_document_link_list_csv_reading(
     csv_data: list[list[str]],
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -237,7 +239,7 @@ def test_salesforce_download_content_document_link_list_csv_reading(
         ),
     ],
 )
-def test_salesforce_download_content_version_list_queries(
+def test_download_content_version_list_queries(
     doc_ids: list[str],
     max_records: int | None,
     expected_query: str,
@@ -295,7 +297,7 @@ def test_salesforce_download_content_version_list_queries(
         ],
     ],
 )
-def test_salesforce_download_content_version_list_csv_reading(
+def test_download_content_version_list_csv_reading(
     csv_data: list[list[str]],
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -330,7 +332,7 @@ def test_salesforce_download_content_version_list_csv_reading(
 @patch.object(Salesforce, "download_content_version_list")
 @patch.object(ContentVersionList, "data_file_exist", return_value=False)
 @patch.object(ContentVersionList, "save", return_value=None)
-def test_salesforce_load_content_version_list_will_call_download_and_save(save_mock, exist_mock, download_mock):
+def test_load_content_version_list_will_call_download_and_save(save_mock, exist_mock, download_mock):
     with tempfile.TemporaryDirectory() as tmpdirname:
         archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
         link_list = []
@@ -356,7 +358,7 @@ def test_salesforce_load_content_version_list_will_call_download_and_save(save_m
 @patch.object(Salesforce, "download_content_version_list")
 @patch.object(ContentVersionList, "data_file_exist", return_value=False)
 @patch.object(ContentVersionList, "save", return_value=None)
-def test_salesforce_load_content_version_list_will_call_download_in_batches(save_mock, exist_mock, download_mock):
+def test_load_content_version_list_will_call_download_in_batches(save_mock, exist_mock, download_mock):
     with tempfile.TemporaryDirectory() as tmpdirname:
         archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
         link_list = []
@@ -388,7 +390,7 @@ def test_salesforce_load_content_version_list_will_call_download_in_batches(save
 @patch.object(ContentVersionList, "data_file_exist", return_value=True)
 @patch.object(ContentVersionList, "load_data_from_file", return_value=None)
 @patch.object(ContentVersionList, "save", return_value=None)
-def test_salesforce_load_content_version_list_will_load_from_file(save_mock, load_mock, exist_mock, download_mock):
+def test_load_content_version_list_will_load_from_file(save_mock, load_mock, exist_mock, download_mock):
     with tempfile.TemporaryDirectory() as tmpdirname:
         archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
         doc_link_list = Mock()
@@ -404,12 +406,12 @@ def test_salesforce_load_content_version_list_will_load_from_file(save_mock, loa
 @patch.object(Salesforce, "download_content_document_link_list")
 @patch.object(ContentDocumentLinkList, "data_file_exist", return_value=False)
 @patch.object(ContentDocumentLinkList, "save", return_value=None)
-def test_salesforce_load_document_link_list_will_call_download_and_save(save_mock, exist_mock, download_mock):
+def test_load_content_document_link_list_will_call_download_and_save(save_mock, exist_mock, download_mock):
     with tempfile.TemporaryDirectory() as tmpdirname:
         archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
-        ret_val = salesforce.load_document_link_list()
+        ret_val = salesforce.load_content_document_link_list()
         assert isinstance(ret_val, ContentDocumentLinkList)
         download_mock.assert_called_once()
         assert isinstance(download_mock.mock_calls[0].kwargs["document_link_list"], ContentDocumentLinkList)
@@ -420,35 +422,74 @@ def test_salesforce_load_document_link_list_will_call_download_and_save(save_moc
 @patch.object(ContentDocumentLinkList, "data_file_exist", return_value=True)
 @patch.object(ContentDocumentLinkList, "load_data_from_file", return_value=None)
 @patch.object(ContentDocumentLinkList, "save", return_value=None)
-def test_salesforce_load_document_link_list_will_load_from_file(save_mock, load_mock, exist_mock, download_mock):
+def test_load_content_document_link_list_will_load_from_file(save_mock, load_mock, exist_mock, download_mock):
     with tempfile.TemporaryDirectory() as tmpdirname:
         archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
-        ret_val = salesforce.load_document_link_list()
+        ret_val = salesforce.load_content_document_link_list()
         assert isinstance(ret_val, ContentDocumentLinkList)
         load_mock.assert_called_once()
         download_mock.assert_not_called()
         save_mock.assert_not_called()
 
 
-# from concurrent.futures import ThreadPoolExecutor
-#
-# @patch.object(Downloader, "download_content_versions_in_queue")
-# @patch.object(DownloadedContentVersionList, "save")
-# @patch.object(ThreadPoolExecutor, "submit")
-# def test_salesforce_download_files(downloaded_version_list_save_mock, downloader_mock):
-#     data_dir = "/fake/dir"
-#     archivist_obj = ArchivistObject(data_dir=data_dir, obj_type="User", config={})
-#     client = SalesforceApiClient(sf_client=Mock())
-#     salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
-#     doc_link_list = ContentDocumentLinkList(data_dir=data_dir)
-#     version_list = ContentVersionList(data_dir=data_dir)
-#     download_queue = DownloadQueue(
-#         document_link_list=doc_link_list,
-#         content_version_list=version_list,
-#         archivist_obj=archivist_obj
-#     )
-#     downloaded_list = DownloadedContentVersionList(data_dir=data_dir)
-#     worker_num = 2
-#     salesforce.download_files(download_queue=download_queue, downloaded_versions_list=downloaded_list, worker_num=worker_num)
+@patch("salesforce_archivist.salesforce.salesforce.ContentVersionDownloader.__new__")
+def test_download_files_will_call_download_and_save(downloader_mock):
+    downloader_mock.return_value.download = MagicMock(side_effect=[None, Exception("test")])
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    client = SalesforceApiClient(sf_client=Mock())
+    max_api_usage = 50
+    salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=max_api_usage)
+    download_content_version_list = MagicMock()
+    download_content_version_list.__iter__.return_value = []
+    downloaded_content_version_list = Mock()
+    salesforce.download_files(
+        download_content_version_list=download_content_version_list,
+        downloaded_content_version_list=downloaded_content_version_list,
+        max_workers=5,
+    )
+
+    downloader_mock.assert_called_once_with(
+        ContentVersionDownloader,
+        sf_client=client,
+        downloaded_version_list=downloaded_content_version_list,
+        max_api_usage_percent=max_api_usage,
+        download_content_version_list=download_content_version_list,
+    )
+    with pytest.raises(Exception):
+        salesforce.download_files(
+            download_content_version_list=download_content_version_list,
+            downloaded_content_version_list=downloaded_content_version_list,
+            max_workers=5,
+        )
+    downloader_mock.return_value.download.assert_has_calls([call(max_workers=5), call(max_workers=5)])
+    assert downloaded_content_version_list.save.call_count == 2
+
+
+@patch("salesforce_archivist.salesforce.salesforce.ContentVersionDownloadValidator.__new__")
+def test_validate_download_will_call_validate_and_save(validator_mock):
+    validator_mock.return_value.validate = MagicMock(side_effect=[None, Exception("test")])
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    salesforce = Salesforce(archivist_obj=archivist_obj, client=Mock(), max_api_usage_percent=50)
+    download_content_version_list = MagicMock()
+    download_content_version_list.__iter__.return_value = []
+    validated_content_version_list = Mock()
+    salesforce.validate_download(
+        download_content_version_list=download_content_version_list,
+        validated_content_version_list=validated_content_version_list,
+        max_workers=5,
+    )
+
+    validator_mock.assert_called_once_with(
+        ContentVersionDownloadValidator,
+        download_content_version_list=download_content_version_list,
+        validated_content_version_list=validated_content_version_list,
+    )
+    with pytest.raises(Exception):
+        salesforce.validate_download(
+            download_content_version_list=download_content_version_list,
+            validated_content_version_list=validated_content_version_list,
+        )
+    validator_mock.return_value.validate.assert_has_calls([call(max_workers=5), call(max_workers=5)])
+    assert validated_content_version_list.save.call_count == 2

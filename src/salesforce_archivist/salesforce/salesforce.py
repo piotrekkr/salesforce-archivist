@@ -83,7 +83,7 @@ class Salesforce:
                     )
                     document_link_list.add_link(link)
 
-    def load_document_link_list(self) -> ContentDocumentLinkList:
+    def load_content_document_link_list(self) -> ContentDocumentLinkList:
         document_link_list = ContentDocumentLinkList(
             data_dir=self._archivist_obj.data_dir, dir_name_field=self._archivist_obj.dir_name_field
         )
@@ -162,7 +162,7 @@ class Salesforce:
                 max_api_usage_percent=self._max_api_usage_percent,
                 download_content_version_list=download_content_version_list,
             )
-            downloader.download(max_workers)
+            downloader.download(max_workers=max_workers)
         finally:
             downloaded_content_version_list.save()
 
@@ -173,10 +173,10 @@ class Salesforce:
         max_workers: int = 5,
     ) -> dict[str, int]:
         try:
-            downloader = ContentVersionDownloadValidator(
+            validator = ContentVersionDownloadValidator(
                 download_content_version_list=download_content_version_list,
                 validated_content_version_list=validated_content_version_list,
             )
-            return downloader.validate(max_workers)
+            return validator.validate(max_workers=max_workers)
         finally:
             validated_content_version_list.save()
