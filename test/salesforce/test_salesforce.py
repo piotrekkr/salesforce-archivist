@@ -1,7 +1,7 @@
-import csv
 import os.path
 import tempfile
 from datetime import datetime, timezone
+from test.salesforce.helper import gen_temp_csv_files
 from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pytest
@@ -136,17 +136,8 @@ def test_download_content_document_link_list_queries(
         )
 
 
-def gen_csv(data: list[list[str]], dir_name: str):
-    for file_data in data:
-        temp_file_path = tempfile.mkstemp(suffix=".csv", dir=dir_name, text=True)[1]
-        with open(temp_file_path, newline="", mode="w") as csv_file:
-            writer = csv.writer(csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            for row in file_data:
-                writer.writerow(row)
-
-
 @pytest.mark.parametrize(
-    "csv_data",
+    "csv_files_data",
     [
         # no files
         [],
@@ -182,23 +173,27 @@ def gen_csv(data: list[list[str]], dir_name: str):
     ],
 )
 def test_download_content_document_link_list_csv_reading(
-    csv_data: list[list[str]],
+    csv_files_data: list[list[list[str]]],
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
         client = SalesforceApiClient(sf_client=Mock())
         archivist_obj = ArchivistObject(
             data_dir=tmpdirname,
             obj_type="User",
-            config={"dir_name_field": csv_data[0][0][2] if len(csv_data) and len(csv_data[0][0]) > 2 else None},
+            config={
+                "dir_name_field": (
+                    csv_files_data[0][0][2] if len(csv_files_data) and len(csv_files_data[0][0]) > 2 else None
+                )
+            },
         )
         client.bulk2 = Mock(
-            side_effect=lambda *args, **kwargs: gen_csv(
-                data=csv_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
+            side_effect=lambda *args, **kwargs: gen_temp_csv_files(
+                data=csv_files_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
             )
         )
         document_link_list = Mock()
         add_link_calls = []
-        for file_data in csv_data:
+        for file_data in csv_files_data:
             for row in file_data[1:]:
                 doc_link = ContentDocumentLink(
                     linked_entity_id=row[0],
@@ -266,7 +261,7 @@ def test_download_content_version_list_queries(
 
 
 @pytest.mark.parametrize(
-    "csv_data",
+    "csv_files_data",
     [
         # no files
         [],
@@ -298,19 +293,19 @@ def test_download_content_version_list_queries(
     ],
 )
 def test_download_content_version_list_csv_reading(
-    csv_data: list[list[str]],
+    csv_files_data: list[list[list[str]]],
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
         client = SalesforceApiClient(sf_client=Mock())
         archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
         client.bulk2 = Mock(
-            side_effect=lambda *args, **kwargs: gen_csv(
-                data=csv_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
+            side_effect=lambda *args, **kwargs: gen_temp_csv_files(
+                data=csv_files_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
             )
         )
         content_version_list = Mock()
         add_version_calls = []
-        for file_data in csv_data:
+        for file_data in csv_files_data:
             for row in file_data[1:]:
                 version = ContentVersion(
                     id=row[0],

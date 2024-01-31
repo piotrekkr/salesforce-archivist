@@ -7,7 +7,14 @@ from salesforce_archivist.salesforce.content_document_link import ContentDocumen
 
 
 class ContentVersion:
-    def __init__(self, id: str, document_id: str, title: str, extension: str, checksum: str):
+    def __init__(
+        self,
+        id: str,
+        document_id: str,
+        title: str,
+        extension: str,
+        checksum: str,
+    ):
         self._id = id
         self._document_id = document_id
         self._title = title
@@ -38,6 +45,7 @@ class ContentVersion:
     def filename(self) -> str:
         return "{id}_{title}.{extension}".format(
             id=self.id,
+            # TODO make it configurable
             title=re.sub(r'[/\\?%*:|"<>]', "-", self.title),
             extension=self.extension,
         )
@@ -100,6 +108,9 @@ class ContentVersionList:
         if link.content_document_id in self._doc_versions_map:
             for version_id in self._doc_versions_map[link.content_document_id]:
                 yield self._data[version_id]
+
+    def __len__(self) -> int:
+        return len(self._data)
 
     @property
     def path(self) -> str:
