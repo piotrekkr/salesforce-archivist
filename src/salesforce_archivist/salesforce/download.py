@@ -197,7 +197,7 @@ class ContentVersionDownloader:
                 self._downloaded_list.append((version, download_path))
                 self._print_download_msg(msg, error=error)
 
-    def download(self, max_workers: int = 5):
+    def download(self, max_workers: int = 5) -> None:
         lock = threading.Lock()
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for version, download_path in self._download_list:

@@ -86,6 +86,10 @@ cmd  = "black ."
 help = "Run code linting"
 cmd  = "flake8"
 
+[tool.poe.tasks.mypy]
+help = "Run mypy"
+cmd = "mypy"
+
 [tool.poe.tasks.cs]
 help = "Run code style tools"
-sequence  = ["isort", "black", "flake8"]
+sequence  = ["isort", "black", "flake8", "mypy"]
