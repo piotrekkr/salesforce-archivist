@@ -90,13 +90,15 @@ class ContentVersionList:
             writer = csv.writer(file)
             writer.writerow(["Id", "ContentDocumentId", "Checksum", "Title", "Extension"])
             for version_id, version in self._data.items():
-                writer.writerow([
-                    version.id,
-                    version.document_id,
-                    version.checksum,
-                    version.title,
-                    version.extension,
-                ])
+                writer.writerow(
+                    [
+                        version.id,
+                        version.document_id,
+                        version.checksum,
+                        version.title,
+                        version.extension,
+                    ]
+                )
 
     def add_version(self, version: ContentVersion) -> None:
         if version.document_id not in self._doc_versions_map:

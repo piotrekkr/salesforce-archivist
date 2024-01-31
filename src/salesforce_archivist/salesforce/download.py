@@ -63,11 +63,13 @@ class DownloadedContentVersionList:
             writer = csv.writer(file)
             writer.writerow(["Id", "ContentDocumentId", "Path on disk"])
             for version_id, version in self._data.items():
-                writer.writerow([
-                    version.id,
-                    version.document_id,
-                    version.path,
-                ])
+                writer.writerow(
+                    [
+                        version.id,
+                        version.document_id,
+                        version.path,
+                    ]
+                )
 
     def add_version(self, version: DownloadedContentVersion) -> None:
         self._data[version.id] = version

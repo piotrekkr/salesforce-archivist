@@ -45,10 +45,12 @@ class ValidatedContentVersionList:
             writer = csv.writer(file)
             writer.writerow(["Checksum", "Path"])
             for version_id, version in self._data.items():
-                writer.writerow([
-                    version.checksum,
-                    version.path,
-                ])
+                writer.writerow(
+                    [
+                        version.checksum,
+                        version.path,
+                    ]
+                )
 
     def add_version(self, version: ValidatedContentVersion) -> None:
         self._data[version.path] = version

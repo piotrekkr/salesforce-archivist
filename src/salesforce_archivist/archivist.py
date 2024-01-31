@@ -67,23 +67,25 @@ class ArchivistAuth:
 
 
 class ArchivistConfig:
-    _schema = Schema({
-        "data_dir": And(str, len, os.path.isdir, error="data_dir must be set and be a directory"),
-        "max_api_usage_percent": Or(int, float, Use(float), lambda v: 0.0 < v <= 100.0),
-        "auth": {
-            "instance_url": And(str, len),
-            "username": And(str, len),
-            "consumer_key": And(str, len),
-            "private_key": And(bytes, len, Use(lambda b: b.decode("UTF-8"))),
-        },
-        "objects": {
-            str: {
-                # "query": And(str, len),
-                Optional(Or("modified_date_gt", "modified_date_lt")): lambda d: isinstance(d, datetime.datetime),
-                Optional("dir_name_field"): And(str, len),
-            }
-        },
-    })
+    _schema = Schema(
+        {
+            "data_dir": And(str, len, os.path.isdir, error="data_dir must be set and be a directory"),
+            "max_api_usage_percent": Or(int, float, Use(float), lambda v: 0.0 < v <= 100.0),
+            "auth": {
+                "instance_url": And(str, len),
+                "username": And(str, len),
+                "consumer_key": And(str, len),
+                "private_key": And(bytes, len, Use(lambda b: b.decode("UTF-8"))),
+            },
+            "objects": {
+                str: {
+                    # "query": And(str, len),
+                    Optional(Or("modified_date_gt", "modified_date_lt")): lambda d: isinstance(d, datetime.datetime),
+                    Optional("dir_name_field"): And(str, len),
+                }
+            },
+        }
+    )
 
     def __init__(self, path: str):
         with open(path) as file:

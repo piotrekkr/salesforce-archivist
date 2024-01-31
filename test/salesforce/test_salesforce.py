@@ -146,17 +146,21 @@ def test_download_content_document_link_list_queries(
             [["LinkedEntityId", "ContentDocumentId"]],
         ],
         # results without custom field for dir name
-        [[
-            ["LinkedEntityId", "ContentDocumentId"],
-            ["LinkedEntityId_1", "ContentDocumentId_1"],
-            ["LinkedEntityId_2", "ContentDocumentId_2"],
-        ]],
+        [
+            [
+                ["LinkedEntityId", "ContentDocumentId"],
+                ["LinkedEntityId_1", "ContentDocumentId_1"],
+                ["LinkedEntityId_2", "ContentDocumentId_2"],
+            ]
+        ],
         # results with custom field for dir name
-        [[
-            ["LinkedEntityId", "ContentDocumentId", "CustomFieldForDirName"],
-            ["LinkedEntityId_1", "ContentDocumentId_1", "CustomFieldForDirName_1"],
-            ["LinkedEntityId_2", "ContentDocumentId_2", "CustomFieldForDirName_2"],
-        ]],
+        [
+            [
+                ["LinkedEntityId", "ContentDocumentId", "CustomFieldForDirName"],
+                ["LinkedEntityId_1", "ContentDocumentId_1", "CustomFieldForDirName_1"],
+                ["LinkedEntityId_2", "ContentDocumentId_2", "CustomFieldForDirName_2"],
+            ]
+        ],
         # results with custom field for dir name in multiple csv files
         [
             [
