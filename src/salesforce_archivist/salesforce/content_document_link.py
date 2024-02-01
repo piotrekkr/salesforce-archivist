@@ -26,15 +26,6 @@ class ContentDocumentLink:
     def download_dir_name(self) -> str:
         return self._download_dir_name if self._download_dir_name is not None else self.linked_entity_id
 
-    def to_csv(self) -> list[str]:
-        row = [self.linked_entity_id, self.content_document_id]
-        if self._download_dir_name is not None:
-            row.append(self._download_dir_name)
-        return row
-
-    def __hash__(self) -> int:
-        return hash((self.linked_entity_id, self.content_document_id, self.download_dir_name))
-
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, type(self)):
             return NotImplemented
