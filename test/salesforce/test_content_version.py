@@ -1,8 +1,8 @@
-import csv
-import io
 import os
 import re
 import tempfile
+
+from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink
 from test.salesforce.helper import gen_csv
 from unittest.mock import call, patch
 
@@ -60,10 +60,9 @@ def test_content_version_list_data_file_exist(exists_mock):
 )
 def test_content_version_list_load_data_from_file(csv_data):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        path = os.path.join(tmpdirname, "content_versions.csv")
-        gen_csv(data=csv_data, path=path)
         with patch.object(ContentVersionList, "add_version") as add_version_mock:
             version_list = ContentVersionList(data_dir=tmpdirname)
+            gen_csv(data=csv_data, path=version_list.path)
             version_list.load_data_from_file()
             expected_calls = []
             for i, row in enumerate(csv_data):
@@ -82,18 +81,18 @@ def test_content_version_list_load_data_from_file(csv_data):
 def test_content_version_list_save():
     with tempfile.TemporaryDirectory() as tmpdirname:
         version_list = ContentVersionList(data_dir=tmpdirname)
-        versions_to_save = [
+        to_save = [
             ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1"),
             ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2"),
         ]
-        for version in versions_to_save:
+        for version in to_save:
             version_list.add_version(version=version)
         version_list.save()
-        loaded_version_list = ContentVersionList(data_dir=tmpdirname)
-        loaded_version_list.load_data_from_file()
-        assert len(version_list) == len(versions_to_save)
-        for version in versions_to_save:
-            assert version == loaded_version_list.get_content_version(version.id)
+        loaded_list = ContentVersionList(data_dir=tmpdirname)
+        loaded_list.load_data_from_file()
+        assert len(loaded_list) == len(to_save)
+        for version in to_save:
+            assert version == loaded_list.get_content_version(version.id)
 
 
 def test_content_version_list_get_content_version():
@@ -109,3 +108,36 @@ def test_content_version_list_add_version():
     version = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
     version_list.add_version(version=version)
     assert version_list.get_content_version(version_id=version.id) == version
+
+
+def test_content_version_list_add_version_does_not_add_duplicates():
+    version_list = ContentVersionList(data_dir="/fake/dir")
+    version = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    doc_link = ContentDocumentLink(content_document_id=version.document_id, linked_entity_id="LID1")
+    version_list.add_version(version=version)
+    version_list.add_version(version=version)
+    versions_for_doc = [v for v in version_list.get_content_versions_for_link(link=doc_link)]
+    assert len(version_list) == 1
+    assert len(versions_for_doc) == 1
+
+
+def test_content_version_list_get_content_versions_for_link():
+    version_list = ContentVersionList(data_dir="/fake/dir")
+    version1 = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    version2 = ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2")
+    version_list.add_version(version=version1)
+    version_list.add_version(version=version2)
+    doc_link = ContentDocumentLink(content_document_id=version1.document_id, linked_entity_id="LID1")
+    gen = version_list.get_content_versions_for_link(link=doc_link)
+    assert version1 == next(gen)
+    with pytest.raises(StopIteration):
+        next(gen)
+
+
+def test_content_version_list_len():
+    version_list = ContentVersionList(data_dir="/fake/dir")
+    version1 = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    version2 = ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2")
+    version_list.add_version(version=version1)
+    version_list.add_version(version=version2)
+    assert 2 == len(version_list)
