@@ -1,3 +1,5 @@
+import csv
+import io
 import os
 import re
 import tempfile
@@ -44,12 +46,12 @@ def test_content_version_list_data_file_exist(exists_mock):
     [
         [
             [
-                ["Id", "ContentDocumentId", "Checksum", "Title", "Extension"],
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension"],
             ],
         ],
         [
             [
-                ["Id", "ContentDocumentId", "Checksum", "Title", "Extension"],
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension"],
                 ["Id_1", "ContentDocumentId_1", "Checksum_1", "Title_1", "ext1"],
                 ["Id_2", "ContentDocumentId_2", "Checksum_2", "Title_2", "ext2"],
             ],
@@ -75,3 +77,35 @@ def test_content_version_list_load_data_from_file(csv_data):
                     )
                 )
             assert add_version_mock.mock_calls == expected_calls
+
+
+def test_content_version_list_save():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        version_list = ContentVersionList(data_dir=tmpdirname)
+        versions_to_save = [
+            ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1"),
+            ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2"),
+        ]
+        for version in versions_to_save:
+            version_list.add_version(version=version)
+        version_list.save()
+        loaded_version_list = ContentVersionList(data_dir=tmpdirname)
+        loaded_version_list.load_data_from_file()
+        assert len(version_list) == len(versions_to_save)
+        for version in versions_to_save:
+            assert version == loaded_version_list.get_content_version(version.id)
+
+
+def test_content_version_list_get_content_version():
+    version_list = ContentVersionList(data_dir="/fake/dir")
+    version = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    version_list.add_version(version=version)
+    assert version_list.get_content_version(version_id=version.id) == version
+    assert version_list.get_content_version(version_id="non-existing-one") is None
+
+
+def test_content_version_list_add_version():
+    version_list = ContentVersionList(data_dir="/fake/dir")
+    version = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    version_list.add_version(version=version)
+    assert version_list.get_content_version(version_id=version.id) == version

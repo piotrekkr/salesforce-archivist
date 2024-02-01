@@ -88,7 +88,7 @@ class ContentVersionList:
     def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
-            writer.writerow(["Id", "ContentDocumentId", "Checksum", "Title", "Extension"])
+            writer.writerow(["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension"])
             for version_id, version in self._data.items():
                 writer.writerow(
                     [
@@ -99,6 +99,9 @@ class ContentVersionList:
                         version.extension,
                     ]
                 )
+
+    def get_content_version(self, version_id: str) -> ContentVersion | None:
+        return self._data.get(version_id)
 
     def add_version(self, version: ContentVersion) -> None:
         if version.document_id not in self._doc_versions_map:
