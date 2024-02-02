@@ -4,9 +4,15 @@ from unittest.mock import patch, call
 
 import pytest
 
-from salesforce.helper import gen_csv
-from salesforce_archivist.salesforce.content_version import ContentVersion
-from salesforce_archivist.salesforce.download import DownloadedContentVersion, DownloadedContentVersionList
+from test.salesforce.helper import gen_csv
+from salesforce_archivist.archivist import ArchivistObject
+from salesforce_archivist.salesforce.content_document_link import ContentDocumentLinkList, ContentDocumentLink
+from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
+from salesforce_archivist.salesforce.download import (
+    DownloadedContentVersion,
+    DownloadedContentVersionList,
+    DownloadContentVersionList,
+)
 
 
 def test_downloaded_content_version_props():
@@ -104,3 +110,25 @@ def test_downloaded_content_version_list_is_downloaded():
     cv2 = ContentVersion(id="ABC", document_id=version.document_id, title="t", checksum="c", extension="e")
     assert version_list.is_downloaded(cv1)
     assert not version_list.is_downloaded(cv2)
+
+
+def test_download_content_version_list():
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
+    link_list.add_link(doc_link=link)
+    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version = ContentVersion(
+        id="VID", document_id=link.content_document_id, checksum="c", extension="ext", title="version"
+    )
+    version_list.add_version(version=version)
+    download = DownloadContentVersionList(
+        document_link_list=link_list, content_version_list=version_list, archivist_obj=archivist_obj
+    )
+    generator = download.__iter__()
+    assert next(generator) == (
+        version,
+        os.path.join(archivist_obj.data_dir, "files", link.download_dir_name, version.filename),
+    )
+    with pytest.raises(StopIteration):
+        next(generator)
