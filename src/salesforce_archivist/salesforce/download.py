@@ -6,7 +6,7 @@ import os
 import shutil
 import threading
 from time import sleep
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING, Generator, Any
 
 import click
 
@@ -35,6 +35,11 @@ class DownloadedContentVersion:
     @property
     def path(self) -> str:
         return self._path
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (self.id, self.document_id, self.path) == (other.id, other.document_id, other.path)
 
 
 class DownloadedContentVersionList:
@@ -79,6 +84,13 @@ class DownloadedContentVersionList:
 
     def get_version(self, content_version: ContentVersion) -> DownloadedContentVersion | None:
         return self._data.get(content_version.id)
+
+    @property
+    def path(self) -> str:
+        return self._path
+
+    def __len__(self) -> int:
+        return len(self._data)
 
 
 class DownloadContentVersionList:
