@@ -85,7 +85,7 @@ def test_downloaded_content_version_list_save():
             assert version == loaded_list.get_version(content_version=cv)
 
 
-def test_downloaded_content_version_list_add_get_is_downloaded():
+def test_downloaded_content_version_list_add_get_version():
     version_list = DownloadedContentVersionList(data_dir="/fake/dir")
     version = DownloadedContentVersion(id="id1", document_id="did1", path="path/file.txt")
     version_list.add_version(version=version)
@@ -94,3 +94,13 @@ def test_downloaded_content_version_list_add_get_is_downloaded():
     )
     assert version_list.get_version(content_version=cv) == version
     assert version_list.is_downloaded(content_version=cv)
+
+
+def test_downloaded_content_version_list_is_downloaded():
+    version_list = DownloadedContentVersionList(data_dir="/fake/dir")
+    version = DownloadedContentVersion(id="id1", document_id="did1", path="path/file.txt")
+    version_list.add_version(version=version)
+    cv1 = ContentVersion(id=version.id, document_id=version.document_id, title="t", checksum="c", extension="e")
+    cv2 = ContentVersion(id="ABC", document_id=version.document_id, title="t", checksum="c", extension="e")
+    assert version_list.is_downloaded(cv1)
+    assert not version_list.is_downloaded(cv2)
