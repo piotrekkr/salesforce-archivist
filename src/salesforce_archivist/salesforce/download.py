@@ -126,6 +126,36 @@ class DownloadContentVersionList:
         return len(self._generate_download_list())
 
 
+class DownloadStats:
+    def __init__(self) -> None:
+        self._total: int = 0
+        self._processed: int = 0
+        self._errors: int = 0
+
+    def initialize(self, total: int = 0) -> None:
+        self._total = total
+        self._processed = 0
+        self._errors = 0
+
+    def add_processed(self, error: bool = False) -> None:
+        self._processed += 1
+        self._total = max(self._total, self._processed)
+        if error:
+            self._errors += 1
+
+    @property
+    def total(self) -> int:
+        return self._total
+
+    @property
+    def processed(self) -> int:
+        return self._processed
+
+    @property
+    def errors(self) -> int:
+        return self._errors
+
+
 class ContentVersionDownloader:
     def __init__(
         self,
@@ -137,9 +167,8 @@ class ContentVersionDownloader:
         self._client = sf_client
         self._downloaded_versions_list = downloaded_version_list
         self._max_api_usage_percent = max_api_usage_percent
-        self._downloaded_list: list[tuple[ContentVersion, str]] = []
         self._wait_sec = wait_sec
-        self._total_download_count = 1
+        self._stats = DownloadStats()
 
     def download_content_version_from_sf(self, version: ContentVersion, download_path: str) -> None:
         downloaded_version = self._downloaded_versions_list.get_version(version)
@@ -183,16 +212,15 @@ class ContentVersionDownloader:
         except Exception:
             api_usage = 0.0
 
-        downloaded_count = len(self._downloaded_list)
-        total_count = self._total_download_count
-        percent = downloaded_count / total_count * 100
-        item_padded = "{{:{width}d}}".format(width=len(str(total_count))).format(downloaded_count)
+        percent = self._stats.processed / self._stats.total * 100 if self._stats.total > 0 else 0.0
+        item_padded = "{{:{width}d}}".format(width=len(str(self._stats.total))).format(self._stats.processed)
+
         click.secho(
             "[{emoji} {downloaded}/{total} {percent:6.2f}%] [☁️{usage:6.2f}%] {msg}".format(
                 emoji="💾" if not error else "❌",
                 downloaded=item_padded,
                 percent=percent,
-                total=total_count,
+                total=self._stats.total,
                 usage=api_usage,
                 msg=msg,
             ),
@@ -207,25 +235,21 @@ class ContentVersionDownloader:
         error = False
         try:
             self.download_content_version_from_sf(version=version, download_path=download_path)
-            self._client.get_api_usage()
             self._wait_if_api_usage_limit()
         except Exception as e:
             msg = "[ERROR] Failed to download content version {id}: {error}".format(id=version.id, error=e)
             error = True
         finally:
             with lock:
-                self._downloaded_list.append((version, download_path))
+                self._stats.add_processed(error=error)
                 self._print_download_msg(msg, error=error)
 
     def download(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> None:
-        try:
-            lock = threading.Lock()
-            self._total_download_count = len(download_list)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-                for version, download_path in download_list:
-                    executor.submit(self.download_or_wait, version=version, download_path=download_path, lock=lock)
-        finally:
-            self._total_download_count = 1
+        self._stats.initialize(total=len(download_list))
+        lock = threading.Lock()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for version, download_path in download_list:
+                executor.submit(self.download_or_wait, version=version, download_path=download_path, lock=lock)
 
     def _wait_if_api_usage_limit(self) -> None:
         if self._max_api_usage_percent is not None:
