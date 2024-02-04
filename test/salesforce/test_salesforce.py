@@ -454,7 +454,6 @@ def test_download_files_will_call_download_and_save(downloader_mock):
         sf_client=client,
         downloaded_version_list=downloaded_content_version_list,
         max_api_usage_percent=max_api_usage,
-        download_content_version_list=download_content_version_list,
     )
     with pytest.raises(Exception):
         salesforce.download_files(
@@ -462,7 +461,12 @@ def test_download_files_will_call_download_and_save(downloader_mock):
             downloaded_content_version_list=downloaded_content_version_list,
             max_workers=5,
         )
-    downloader_mock.return_value.download.assert_has_calls([call(max_workers=5), call(max_workers=5)])
+    downloader_mock.return_value.download.assert_has_calls(
+        [
+            call(download_list=download_content_version_list, max_workers=5),
+            call(download_list=download_content_version_list, max_workers=5),
+        ]
+    )
     assert downloaded_content_version_list.save.call_count == 2
 
 

@@ -160,9 +160,8 @@ class Salesforce:
                 sf_client=self._client,
                 downloaded_version_list=downloaded_content_version_list,
                 max_api_usage_percent=self._max_api_usage_percent,
-                download_content_version_list=download_content_version_list,
             )
-            downloader.download(max_workers=max_workers)
+            downloader.download(download_list=download_content_version_list, max_workers=max_workers)
         finally:
             downloaded_content_version_list.save()
 
