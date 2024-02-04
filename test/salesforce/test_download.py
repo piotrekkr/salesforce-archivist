@@ -16,7 +16,7 @@ from salesforce_archivist.salesforce.download import (
     DownloadedContentVersion,
     DownloadedContentVersionList,
     DownloadContentVersionList,
-    ContentVersionDownloader,
+    ContentVersionDownloader, DownloadStats,
 )
 
 
@@ -273,3 +273,27 @@ def test_content_version_downloader_download_or_wait(sleep_mock):
             lock=threading.Lock(),
         )
         sleep_mock.assert_called_once_with(wait)
+
+
+def test_download_stats_initialize():
+    stats = DownloadStats()
+    stats.initialize(total=11)
+    stats.add_processed(error=True)
+    stats.initialize(total=5)
+    assert stats.total == 5
+    assert stats.processed == 0
+    assert stats.errors == 0
+
+
+def test_download_stats_add_processed():
+    stats = DownloadStats()
+    stats.initialize(total=3)
+    stats.add_processed(error=True)
+    stats.add_processed()
+    assert stats.total == 3
+    assert stats.processed == 2
+    assert stats.errors == 1
+    stats.add_processed()
+    stats.add_processed()
+    assert stats.total == 4
+    assert stats.processed == 4
