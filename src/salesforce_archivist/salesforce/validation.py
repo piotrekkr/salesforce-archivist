@@ -136,7 +136,7 @@ class ContentVersionDownloadValidator:
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
-    def validate_version(self, version: ContentVersion, download_path: str) -> None:
+    def validate_version(self, version: ContentVersion, download_path: str) -> bool:
         msg = "[ OK ] {id} => {path}".format(
             id=version.id,
             path=download_path,
@@ -163,6 +163,8 @@ class ContentVersionDownloadValidator:
             with self._lock:
                 self._stats.add_processed(invalid=invalid)
                 self._print_validated_msg(msg, invalid=invalid)
+
+        return not invalid
 
     def validate(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> ValidationStats:
         self._stats.initialize(total=len(download_list))

@@ -433,66 +433,59 @@ def test_load_content_document_link_list_will_load_from_file(save_mock, load_moc
         save_mock.assert_not_called()
 
 
-@patch("salesforce_archivist.salesforce.salesforce.ContentVersionDownloader.__new__")
-def test_download_files_will_call_download_and_save(downloader_mock):
-    downloader_mock.return_value.download = MagicMock(side_effect=[None, Exception("test")])
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
-    client = SalesforceApiClient(sf_client=Mock())
-    max_api_usage = 50
-    salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=max_api_usage)
-    download_content_version_list = MagicMock()
-    download_content_version_list.__iter__.return_value = []
-    downloaded_content_version_list = Mock()
-    salesforce.download_files(
-        download_content_version_list=download_content_version_list,
-        downloaded_content_version_list=downloaded_content_version_list,
-        max_workers=5,
-    )
-
-    downloader_mock.assert_called_once_with(
-        ContentVersionDownloader,
-        sf_client=client,
-        downloaded_version_list=downloaded_content_version_list,
-        max_api_usage_percent=max_api_usage,
-    )
-    with pytest.raises(Exception):
+def test_download_files_will_call_download_and_save():
+    with patch.object(ContentVersionDownloader, "download") as download_mock:
+        download_mock.side_effect = [None, Exception("test")]
+        archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+        client = SalesforceApiClient(sf_client=Mock())
+        max_api_usage = 50
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=max_api_usage)
+        download_content_version_list = MagicMock()
+        download_content_version_list.__iter__.return_value = []
+        downloaded_content_version_list = Mock()
         salesforce.download_files(
             download_content_version_list=download_content_version_list,
             downloaded_content_version_list=downloaded_content_version_list,
             max_workers=5,
         )
-    downloader_mock.return_value.download.assert_has_calls(
-        [
-            call(download_list=download_content_version_list, max_workers=5),
-            call(download_list=download_content_version_list, max_workers=5),
-        ]
-    )
-    assert downloaded_content_version_list.save.call_count == 2
+        with pytest.raises(Exception):
+            salesforce.download_files(
+                download_content_version_list=download_content_version_list,
+                downloaded_content_version_list=downloaded_content_version_list,
+                max_workers=5,
+            )
+        download_mock.assert_has_calls(
+            [
+                call(download_list=download_content_version_list, max_workers=5),
+                call(download_list=download_content_version_list, max_workers=5),
+            ]
+        )
+        assert downloaded_content_version_list.save.call_count == 2
 
 
-@patch("salesforce_archivist.salesforce.salesforce.ContentVersionDownloadValidator.__new__")
-def test_validate_download_will_call_validate_and_save(validator_mock):
-    validator_mock.return_value.validate = MagicMock(side_effect=[None, Exception("test")])
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
-    salesforce = Salesforce(archivist_obj=archivist_obj, client=Mock(), max_api_usage_percent=50)
-    download_content_version_list = MagicMock()
-    download_content_version_list.__iter__.return_value = []
-    validated_content_version_list = Mock()
-    salesforce.validate_download(
-        download_content_version_list=download_content_version_list,
-        validated_content_version_list=validated_content_version_list,
-        max_workers=5,
-    )
-
-    validator_mock.assert_called_once_with(
-        ContentVersionDownloadValidator,
-        download_content_version_list=download_content_version_list,
-        validated_content_version_list=validated_content_version_list,
-    )
-    with pytest.raises(Exception):
+def test_validate_download_will_call_validate_and_save():
+    with patch.object(ContentVersionDownloadValidator, "validate") as validate_mock:
+        validate_mock.side_effect = [None, Exception("test")]
+        archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+        salesforce = Salesforce(archivist_obj=archivist_obj, client=Mock(), max_api_usage_percent=50)
+        download_content_version_list = MagicMock()
+        download_content_version_list.__iter__.return_value = []
+        validated_content_version_list = Mock()
         salesforce.validate_download(
             download_content_version_list=download_content_version_list,
             validated_content_version_list=validated_content_version_list,
+            max_workers=5,
         )
-    validator_mock.return_value.validate.assert_has_calls([call(max_workers=5), call(max_workers=5)])
-    assert validated_content_version_list.save.call_count == 2
+
+        with pytest.raises(Exception):
+            salesforce.validate_download(
+                download_content_version_list=download_content_version_list,
+                validated_content_version_list=validated_content_version_list,
+            )
+        validate_mock.assert_has_calls(
+            [
+                call(download_list=download_content_version_list, max_workers=5),
+                call(download_list=download_content_version_list, max_workers=5),
+            ]
+        )
+        assert validated_content_version_list.save.call_count == 2

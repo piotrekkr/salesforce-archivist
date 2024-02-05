@@ -1,14 +1,22 @@
+import concurrent.futures
+import hashlib
 import os
 import tempfile
 from unittest.mock import patch, call
 
 import pytest
+
+from salesforce_archivist.archivist import ArchivistObject
+from salesforce_archivist.salesforce.content_document_link import ContentDocumentLinkList, ContentDocumentLink
+from salesforce_archivist.salesforce.content_version import ContentVersionList, ContentVersion
+from salesforce_archivist.salesforce.download import DownloadContentVersionList
 from test.salesforce.helper import gen_csv
 
 from salesforce_archivist.salesforce.validation import (
     ValidatedContentVersion,
     ValidatedContentVersionList,
     ValidationStats,
+    ContentVersionDownloadValidator,
 )
 
 
@@ -123,3 +131,98 @@ def test_download_stats_add_processed():
     stats.add_processed()
     assert stats.total == 4
     assert stats.processed == 4
+
+
+@patch.object(concurrent.futures.ThreadPoolExecutor, "submit")
+def test_content_version_download_validator_validate_will_validate_in_parallel(submit_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
+    link_list.add_link(doc_link=link)
+    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list.add_version(
+        version=ContentVersion(
+            id="VID1", document_id=link.content_document_id, checksum="c1", extension="ext1", title="version1"
+        )
+    )
+    version_list.add_version(
+        version=ContentVersion(
+            id="VID2", document_id=link.content_document_id, checksum="c2", extension="ext2", title="version2"
+        )
+    )
+    download_content_version_list = DownloadContentVersionList(
+        document_link_list=link_list, content_version_list=version_list, archivist_obj=archivist_obj
+    )
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
+    validator.validate(download_list=download_content_version_list)
+    assert submit_mock.call_count == 2
+
+
+def test_content_version_download_validator_validate_version_will_find_missing_file():
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    version = ContentVersion(id="VID1", document_id="DID", checksum="c1", extension="ext1", title="version1")
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
+    assert not validator.validate_version(version=version, download_path="/non/existing/path")
+
+
+@patch("os.path.exists", return_value=True)
+def test_content_version_download_validator_validate_version_will_check_validated_checksum(exists_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    version_fail = ContentVersion(id="VID1", document_id="DID", checksum="xyz", extension="ext1", title="version1")
+    version_ok = ContentVersion(id="VID2", document_id="DID", checksum="abc", extension="ext1", title="version1")
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validated_path = "/path/to/file"
+    validated_version_list.add_version(ValidatedContentVersion(path=validated_path, checksum="abc"))
+    validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
+    assert not validator.validate_version(version=version_fail, download_path=validated_path)
+    assert validator.validate_version(version=version_ok, download_path=validated_path)
+
+
+@pytest.mark.parametrize(
+    "file_data, checksum, should_match",
+    [
+        ("test", hashlib.md5("test".encode("utf-8")).hexdigest(), True),
+        ("test1", hashlib.md5("test".encode("utf-8")).hexdigest(), False),
+    ],
+)
+def test_content_version_download_validator_validate_version_will_calculate_checksum_and_check(
+    file_data: str, checksum: str, should_match: bool
+):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        download_path = os.path.join(tmpdirname, "file.txt")
+        with open(download_path, "wb") as file:
+            file.write(file_data.encode("utf-8"))
+
+        version = ContentVersion(id="VID1", document_id="DID", checksum=checksum, extension="ext1", title="version1")
+        validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+        validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
+        assert validator.validate_version(version=version, download_path=download_path) == should_match
+        assert len(validated_version_list) == 1
+
+
+def test_content_version_download_validator_validate_version_will_update_validated_list():
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        download_path = os.path.join(tmpdirname, "file.txt")
+        data = "test".encode("utf-8")
+        data_md5 = hashlib.md5(data).hexdigest()
+        with open(download_path, "wb") as file:
+            file.write(data)
+        version = ContentVersion(id="VID1", document_id="DID", checksum="checksum", extension="ext1", title="version1")
+        validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+        validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
+        validator.validate_version(version=version, download_path=download_path)
+        assert len(validated_version_list) == 1
+        assert validated_version_list.get_version(download_path).checksum == data_md5
+
+
+@patch("os.path.exists", side_effect=RuntimeError("Test error"))
+def test_content_version_download_validator_validate_version_will_return_invalid_on_exception(exists_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    version = ContentVersion(id="VID1", document_id="DID", checksum="checksum", extension="ext1", title="version1")
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
+    assert not validator.validate_version(version=version, download_path="/fake/path/download")
