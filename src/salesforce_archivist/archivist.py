@@ -148,10 +148,19 @@ class Archivist:
                 content_version_list=content_version_list,
                 archivist_obj=archivist_obj,
             )
-            salesforce.download_files(
+            stats = salesforce.download_files(
                 download_content_version_list=download_list,
                 downloaded_content_version_list=downloaded_content_versions_list,
             )
+            click.echo(
+                "Downloaded {processed} files. Encountered {errors} errors".format(
+                    processed=stats.processed, errors=stats.errors
+                )
+            )
+            if stats.errors > 0:
+                click.secho("[FAILED] Download finished with errors.", fg="red")
+            else:
+                click.secho("[SUCCESS] Download finished without any errors.", fg="green")
 
     def validate(self) -> None:
         validated_versions_list = ValidatedContentVersionList(self._config.data_dir)
@@ -178,7 +187,7 @@ class Archivist:
                 download_content_version_list=download_list, validated_content_version_list=validated_versions_list
             )
             click.echo(
-                "Processed {processed} downloads. Found {invalid} invalid downloads".format(
+                "Processed {processed} downloaded files. Found {invalid} invalid downloads".format(
                     processed=stats.processed, invalid=stats.invalid
                 )
             )

@@ -245,11 +245,12 @@ class ContentVersionDownloader:
                 self._stats.add_processed(error=error)
                 self._print_download_msg(msg, error=error)
 
-    def download(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> None:
+    def download(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> DownloadStats:
         self._stats.initialize(total=len(download_list))
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for version, download_path in download_list:
                 executor.submit(self.download_or_wait, version=version, download_path=download_path)
+        return self._stats
 
     def _wait_if_api_usage_limit(self) -> None:
         if self._max_api_usage_percent is not None:

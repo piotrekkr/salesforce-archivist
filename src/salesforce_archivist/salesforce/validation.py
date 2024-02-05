@@ -3,6 +3,7 @@ import csv
 import hashlib
 import os
 import threading
+from typing import Any
 
 import click
 
@@ -22,6 +23,11 @@ class ValidatedContentVersion:
     @property
     def checksum(self) -> str:
         return self._checksum
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (self.checksum, self.path) == (other.checksum, other.path)
 
 
 class ValidatedContentVersionList:
@@ -65,31 +71,61 @@ class ValidatedContentVersionList:
     def path(self) -> str:
         return self._path
 
+    def __len__(self) -> int:
+        return len(self._data)
+
+
+class ValidationStats:
+    def __init__(self) -> None:
+        self._total: int = 0
+        self._processed: int = 0
+        self._invalid: int = 0
+
+    def initialize(self, total: int = 0) -> None:
+        self._total = total
+        self._processed = 0
+        self._invalid = 0
+
+    def add_processed(self, invalid: bool = False) -> None:
+        self._processed += 1
+        self._total = max(self._total, self._processed)
+        if invalid:
+            self._invalid += 1
+
+    @property
+    def total(self) -> int:
+        return self._total
+
+    @property
+    def processed(self) -> int:
+        return self._processed
+
+    @property
+    def invalid(self) -> int:
+        return self._invalid
+
 
 class ContentVersionDownloadValidator:
     def __init__(
         self,
-        download_content_version_list: DownloadContentVersionList,
         validated_content_version_list: ValidatedContentVersionList,
     ):
-        self._versions_list: list[tuple[ContentVersion, str]] = [vp for vp in download_content_version_list]
         self._validated_list = validated_content_version_list
-        self._stats = {
-            "total": len(self._versions_list),
-            "processed": 0,
-            "invalid": 0,
-        }
+        self._stats = ValidationStats()
+        self._lock = threading.Lock()
 
-    def _print_validated_msg(self, msg: str, error: bool = False) -> None:
-        total_size = self._stats["total"]
-        processed = self._stats["processed"]
-        percent = processed / total_size * 100
-        item_padded = "{{:{width}d}}".format(width=len(str(total_size))).format(processed)
+    def _print_validated_msg(self, msg: str, invalid: bool = False) -> None:
+        percent = self._stats.processed / self._stats.total * 100 if self._stats.total > 0 else 0.0
+        item_padded = "{{:{width}d}}".format(width=len(str(self._stats.total))).format(self._stats.processed)
         click.secho(
             "[{emoji} {checked}/{total} {percent:6.2f}%] {msg}".format(
-                emoji="✅" if not error else "❌", checked=item_padded, percent=percent, total=total_size, msg=msg
+                emoji="✅" if not invalid else "❌",
+                checked=item_padded,
+                percent=percent,
+                total=self._stats.total,
+                msg=msg,
             ),
-            fg="red" if error else None,
+            fg="red" if invalid else None,
         )
 
     @staticmethod
@@ -100,39 +136,37 @@ class ContentVersionDownloadValidator:
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
-    def _validate(self, version: ContentVersion, download_path: str, lock: threading.Lock) -> None:
+    def validate_version(self, version: ContentVersion, download_path: str) -> None:
         msg = "[ OK ] {id} => {path}".format(
             id=version.id,
             path=download_path,
         )
-        valid = True
+        invalid = False
         try:
             if not os.path.exists(download_path):
                 msg = "[ KO ] {id} => File does not exist: {path}".format(id=version.id, path=download_path)
-                valid = False
+                invalid = True
             elif (validated_version := self._validated_list.get_version(download_path)) is not None:
                 if version.checksum != validated_version.checksum:
                     msg = "[ KO ] {id} => checksum invalid: {path}".format(id=version.id, path=download_path)
-                    valid = False
+                    invalid = True
             else:
                 checksum = self._calculate_md5(download_path)
                 if version.checksum != checksum:
                     msg = "[ KO ] {id} => checksum invalid: {path}".format(id=version.id, path=download_path)
-                    valid = False
+                    invalid = True
                 self._validated_list.add_version(ValidatedContentVersion(path=download_path, checksum=checksum))
         except Exception as e:
             msg = "[ KO ] {id} => Exception: {e}".format(id=version.id, e=e)
-            valid = False
+            invalid = True
         finally:
-            with lock:
-                self._stats["processed"] += 1
-                if not valid:
-                    self._stats["invalid"] += 1
-                self._print_validated_msg(msg, error=not valid)
+            with self._lock:
+                self._stats.add_processed(invalid=invalid)
+                self._print_validated_msg(msg, invalid=invalid)
 
-    def validate(self, max_workers: int = 5) -> dict[str, int]:
-        lock = threading.Lock()
+    def validate(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> ValidationStats:
+        self._stats.initialize(total=len(download_list))
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for version, download_path in self._versions_list:
-                executor.submit(self._validate, version=version, download_path=download_path, lock=lock)
+            for version, download_path in download_list:
+                executor.submit(self.validate_version, version=version, download_path=download_path)
         return self._stats

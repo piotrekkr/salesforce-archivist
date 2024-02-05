@@ -13,8 +13,13 @@ from salesforce_archivist.salesforce.download import (
     ContentVersionDownloader,
     DownloadContentVersionList,
     DownloadedContentVersionList,
+    DownloadStats,
 )
-from salesforce_archivist.salesforce.validation import ContentVersionDownloadValidator, ValidatedContentVersionList
+from salesforce_archivist.salesforce.validation import (
+    ContentVersionDownloadValidator,
+    ValidatedContentVersionList,
+    ValidationStats,
+)
 
 if TYPE_CHECKING:
     from salesforce_archivist.archivist import ArchivistObject
@@ -154,14 +159,14 @@ class Salesforce:
         download_content_version_list: DownloadContentVersionList,
         downloaded_content_version_list: DownloadedContentVersionList,
         max_workers: int = 5,
-    ) -> None:
+    ) -> DownloadStats:
         try:
             downloader = ContentVersionDownloader(
                 sf_client=self._client,
                 downloaded_version_list=downloaded_content_version_list,
                 max_api_usage_percent=self._max_api_usage_percent,
             )
-            downloader.download(download_list=download_content_version_list, max_workers=max_workers)
+            return downloader.download(download_list=download_content_version_list, max_workers=max_workers)
         finally:
             downloaded_content_version_list.save()
 
@@ -170,12 +175,11 @@ class Salesforce:
         download_content_version_list: DownloadContentVersionList,
         validated_content_version_list: ValidatedContentVersionList,
         max_workers: int = 5,
-    ) -> dict[str, int]:
+    ) -> ValidationStats:
         try:
             validator = ContentVersionDownloadValidator(
-                download_content_version_list=download_content_version_list,
                 validated_content_version_list=validated_content_version_list,
             )
-            return validator.validate(max_workers=max_workers)
+            return validator.validate(download_list=download_content_version_list, max_workers=max_workers)
         finally:
             validated_content_version_list.save()
