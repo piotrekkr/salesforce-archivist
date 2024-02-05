@@ -169,6 +169,7 @@ class ContentVersionDownloader:
         self._max_api_usage_percent = max_api_usage_percent
         self._wait_sec = wait_sec
         self._stats = DownloadStats()
+        self._lock = threading.Lock()
 
     def download_content_version_from_sf(self, version: ContentVersion, download_path: str) -> None:
         downloaded_version = self._downloaded_versions_list.get_version(version)
@@ -227,7 +228,7 @@ class ContentVersionDownloader:
             fg="red" if error else None,
         )
 
-    def download_or_wait(self, version: ContentVersion, download_path: str, lock: threading.Lock) -> None:
+    def download_or_wait(self, version: ContentVersion, download_path: str) -> None:
         msg = "[OK] Downloaded content version {id} into {path}".format(
             id=version.id,
             path=download_path,
@@ -240,16 +241,15 @@ class ContentVersionDownloader:
             msg = "[ERROR] Failed to download content version {id}: {error}".format(id=version.id, error=e)
             error = True
         finally:
-            with lock:
+            with self._lock:
                 self._stats.add_processed(error=error)
                 self._print_download_msg(msg, error=error)
 
     def download(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> None:
         self._stats.initialize(total=len(download_list))
-        lock = threading.Lock()
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for version, download_path in download_list:
-                executor.submit(self.download_or_wait, version=version, download_path=download_path, lock=lock)
+                executor.submit(self.download_or_wait, version=version, download_path=download_path)
 
     def _wait_if_api_usage_limit(self) -> None:
         if self._max_api_usage_percent is not None:

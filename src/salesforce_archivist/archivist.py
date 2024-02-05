@@ -177,8 +177,12 @@ class Archivist:
             stats = salesforce.validate_download(
                 download_content_version_list=download_list, validated_content_version_list=validated_versions_list
             )
-            click.echo("Processed {processed} downloads. Found {invalid} invalid downloads".format(**stats))
-            if stats["invalid"] > 0:
+            click.echo(
+                "Processed {processed} downloads. Found {invalid} invalid downloads".format(
+                    processed=stats.processed, invalid=stats.invalid
+                )
+            )
+            if stats.invalid > 0:
                 click.secho("[FAILED] Validation finished with errors.", fg="red")
             else:
                 click.secho("[SUCCESS] Validation finished without any errors.", fg="green")

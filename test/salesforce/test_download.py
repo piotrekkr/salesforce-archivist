@@ -1,7 +1,6 @@
 import concurrent.futures
 import os
 import tempfile
-import threading
 from unittest.mock import patch, call, Mock, MagicMock
 
 import pytest
@@ -16,7 +15,8 @@ from salesforce_archivist.salesforce.download import (
     DownloadedContentVersion,
     DownloadedContentVersionList,
     DownloadContentVersionList,
-    ContentVersionDownloader, DownloadStats,
+    ContentVersionDownloader,
+    DownloadStats,
 )
 
 
@@ -103,8 +103,9 @@ def test_downloaded_content_version_list_add_get_version():
     cv = ContentVersion(
         id=version.id, document_id=version.document_id, title="title", checksum="checksum", extension="ext"
     )
+    cv2 = ContentVersion(id="X", document_id="Y", title="title", checksum="checksum2", extension="ext2")
     assert version_list.get_version(content_version=cv) == version
-    assert version_list.is_downloaded(content_version=cv)
+    assert version_list.get_version(content_version=cv2) is None
 
 
 def test_downloaded_content_version_list_is_downloaded():
@@ -270,7 +271,6 @@ def test_content_version_downloader_download_or_wait(sleep_mock):
         downloader.download_or_wait(
             ContentVersion(id="ID", document_id="DOC", checksum="c", extension="e", title="T"),
             download_path="/fake/download/path",
-            lock=threading.Lock(),
         )
         sleep_mock.assert_called_once_with(wait)
 
