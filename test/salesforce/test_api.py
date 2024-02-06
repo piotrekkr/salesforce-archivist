@@ -8,6 +8,15 @@ from salesforce_archivist.salesforce.api import ApiUsage, SalesforceApiClient
 from salesforce_archivist.salesforce.content_version import ContentVersion
 
 
+@pytest.mark.parametrize("used, total, percent", [(15, 100, 15.0), (999, 1000, 99.9), (97, 501, 19.36)])
+def test_api_usage(used: int, total: int, percent: float):
+    sf_usage = Usage(used=used, total=total)
+    api_usage = ApiUsage(sf_usage)
+    assert api_usage.used == used
+    assert api_usage.total == total
+    assert api_usage.percent == percent
+
+
 def test_bulk2():
     expected_result = [{"test": 1}]
     mock_sf = Mock()
