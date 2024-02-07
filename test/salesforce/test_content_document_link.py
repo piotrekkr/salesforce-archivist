@@ -52,9 +52,9 @@ def test_content_document_link_list_data_file_exist(exists_mock):
     ],
 )
 def test_content_document_link_list_load_data_from_file(csv_data):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         with patch.object(ContentDocumentLinkList, "add_link") as add_link_mock:
-            link_list = ContentDocumentLinkList(data_dir=tmpdirname)
+            link_list = ContentDocumentLinkList(data_dir=tmp_dir)
             gen_csv(data=csv_data, path=link_list.path)
             link_list.load_data_from_file()
             expected_calls = []
@@ -72,8 +72,8 @@ def test_content_document_link_list_load_data_from_file(csv_data):
 
 
 def test_content_document_link_list_save():
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        link_list = ContentDocumentLinkList(data_dir=tmpdirname)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        link_list = ContentDocumentLinkList(data_dir=tmp_dir)
         to_save = [
             ContentDocumentLink(linked_entity_id="EID", content_document_id="did", download_dir_name="dir_name"),
             ContentDocumentLink(linked_entity_id="EID2", content_document_id="did2", download_dir_name="dir_name2"),
@@ -81,7 +81,7 @@ def test_content_document_link_list_save():
         for link in to_save:
             link_list.add_link(doc_link=link)
         link_list.save()
-        loaded_list = ContentDocumentLinkList(data_dir=tmpdirname)
+        loaded_list = ContentDocumentLinkList(data_dir=tmp_dir)
         loaded_list.load_data_from_file()
         loaded_links = [link for link in loaded_list]
         assert len(loaded_list) == len(to_save)

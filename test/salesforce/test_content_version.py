@@ -59,9 +59,9 @@ def test_content_version_list_data_file_exist(exists_mock):
     ],
 )
 def test_content_version_list_load_data_from_file(csv_data):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         with patch.object(ContentVersionList, "add_version") as add_version_mock:
-            version_list = ContentVersionList(data_dir=tmpdirname)
+            version_list = ContentVersionList(data_dir=tmp_dir)
             gen_csv(data=csv_data, path=version_list.path)
             version_list.load_data_from_file()
             expected_calls = []
@@ -79,8 +79,8 @@ def test_content_version_list_load_data_from_file(csv_data):
 
 
 def test_content_version_list_save():
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        version_list = ContentVersionList(data_dir=tmpdirname)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        version_list = ContentVersionList(data_dir=tmp_dir)
         to_save = [
             ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1"),
             ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2"),
@@ -88,7 +88,7 @@ def test_content_version_list_save():
         for version in to_save:
             version_list.add_version(version=version)
         version_list.save()
-        loaded_list = ContentVersionList(data_dir=tmpdirname)
+        loaded_list = ContentVersionList(data_dir=tmp_dir)
         loaded_list.load_data_from_file()
         assert len(loaded_list) == len(to_save)
         for version in to_save:

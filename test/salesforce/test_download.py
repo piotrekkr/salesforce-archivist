@@ -61,9 +61,9 @@ def test_downloaded_content_version_list_data_file_exist(exists_mock):
     ],
 )
 def test_downloaded_content_version_list_load_data_from_file(csv_data):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         with patch.object(DownloadedContentVersionList, "add_version") as add_version_mock:
-            version_list = DownloadedContentVersionList(data_dir=tmpdirname)
+            version_list = DownloadedContentVersionList(data_dir=tmp_dir)
             gen_csv(data=csv_data, path=version_list.path)
             version_list.load_data_from_file()
             expected_calls = []
@@ -77,8 +77,8 @@ def test_downloaded_content_version_list_load_data_from_file(csv_data):
 
 
 def test_downloaded_content_version_list_save():
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        version_list = DownloadedContentVersionList(data_dir=tmpdirname)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        version_list = DownloadedContentVersionList(data_dir=tmp_dir)
         to_save = [
             DownloadedContentVersion(id="id1", document_id="did1", path="data/path/file_2.txt"),
             DownloadedContentVersion(id="id2", document_id="did2", path="data/path/file_2.txt"),
@@ -86,7 +86,7 @@ def test_downloaded_content_version_list_save():
         for version in to_save:
             version_list.add_version(version=version)
         version_list.save()
-        loaded_list = DownloadedContentVersionList(data_dir=tmpdirname)
+        loaded_list = DownloadedContentVersionList(data_dir=tmp_dir)
         loaded_list.load_data_from_file()
         assert len(loaded_list) == len(to_save)
         for version in to_save:
@@ -190,8 +190,8 @@ def test_content_version_downloader_download_content_version_from_sf_will_add_al
 
 
 def test_content_version_downloader_download_content_version_from_sf_will_copy_existing_file_to_new_path():
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
 
         already_downloaded_path = os.path.join(archivist_obj.data_dir, "files", "file1.txt")
         to_download_path = os.path.join(archivist_obj.data_dir, "files", "file2.txt")
@@ -226,8 +226,8 @@ def test_content_version_downloader_download_content_version_from_sf_will_copy_e
 
 
 def test_content_version_downloader_download_content_version_from_sf_will_download_from_salesforce():
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         version = ContentVersion(id="VID1", document_id="DOC1", checksum="c1", extension="ext1", title="version1")
         downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
 
@@ -239,7 +239,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_downlo
             sf_client=sf_client,
             downloaded_version_list=downloaded_version_list,
         )
-        path = os.path.join(tmpdirname, "test.txt")
+        path = os.path.join(tmp_dir, "test.txt")
         downloader.download_content_version_from_sf(version=version, download_path=path)
         assert os.path.exists(path)
         with open(path, "rb") as file:

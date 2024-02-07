@@ -61,9 +61,9 @@ def test_validated_content_version_list_data_file_exist(exists_mock):
     ],
 )
 def test_validated_content_version_list_load_data_from_file(csv_data):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         with patch.object(ValidatedContentVersionList, "add_version") as add_version_mock:
-            version_list = ValidatedContentVersionList(data_dir=tmpdirname)
+            version_list = ValidatedContentVersionList(data_dir=tmp_dir)
             gen_csv(data=csv_data, path=version_list.path)
             version_list.load_data_from_file()
             expected_calls = []
@@ -75,8 +75,8 @@ def test_validated_content_version_list_load_data_from_file(csv_data):
 
 
 def test_validated_content_version_list_save():
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        version_list = ValidatedContentVersionList(data_dir=tmpdirname)
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        version_list = ValidatedContentVersionList(data_dir=tmp_dir)
         to_save = [
             ValidatedContentVersion(checksum="checksum1", path="data/path/file_1.txt"),
             ValidatedContentVersion(checksum="checksum2", path="data/path/file_2.txt"),
@@ -84,7 +84,7 @@ def test_validated_content_version_list_save():
         for version in to_save:
             version_list.add_version(version=version)
         version_list.save()
-        loaded_list = ValidatedContentVersionList(data_dir=tmpdirname)
+        loaded_list = ValidatedContentVersionList(data_dir=tmp_dir)
         loaded_list.load_data_from_file()
         assert len(loaded_list) == len(to_save)
         for version in to_save:
@@ -190,9 +190,9 @@ def test_content_version_download_validator_validate_version_will_check_validate
 def test_content_version_download_validator_validate_version_will_calculate_checksum_and_check(
     file_data: str, checksum: str, should_match: bool
 ):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
-        download_path = os.path.join(tmpdirname, "file.txt")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
+        download_path = os.path.join(tmp_dir, "file.txt")
         with open(download_path, "wb") as file:
             file.write(file_data.encode("utf-8"))
 
@@ -204,9 +204,9 @@ def test_content_version_download_validator_validate_version_will_calculate_chec
 
 
 def test_content_version_download_validator_validate_version_will_update_validated_list():
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
-        download_path = os.path.join(tmpdirname, "file.txt")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
+        download_path = os.path.join(tmp_dir, "file.txt")
         data = "test".encode("utf-8")
         data_md5 = hashlib.md5(data).hexdigest()
         with open(download_path, "wb") as file:

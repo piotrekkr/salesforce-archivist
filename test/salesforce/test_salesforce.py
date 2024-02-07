@@ -115,9 +115,9 @@ def test_download_content_document_link_list_queries(
     client = Mock()
     client.bulk2 = Mock()
     document_link_list = Mock()
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         archivist_obj = ArchivistObject(
-            data_dir=tmpdirname,
+            data_dir=tmp_dir,
             obj_type="User",
             modified_date_lt=modified_date_lt,
             modified_date_gt=modified_date_gt,
@@ -177,10 +177,10 @@ def test_download_content_document_link_list_queries(
 def test_download_content_document_link_list_csv_reading(
     csv_files_data: list[list[list[str]]],
 ):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         client = SalesforceApiClient(sf_client=Mock())
         archivist_obj = ArchivistObject(
-            data_dir=tmpdirname,
+            data_dir=tmp_dir,
             obj_type="User",
             dir_name_field=(csv_files_data[0][0][2] if len(csv_files_data) and len(csv_files_data[0][0]) > 2 else None),
         )
@@ -241,8 +241,8 @@ def test_download_content_version_list_queries(
     client = Mock()
     client.bulk2 = Mock()
     content_version_list = Mock()
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         call_args = {
             "document_ids": doc_ids,
@@ -293,9 +293,9 @@ def test_download_content_version_list_queries(
 def test_download_content_version_list_csv_reading(
     csv_files_data: list[list[list[str]]],
 ):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         client = SalesforceApiClient(sf_client=Mock())
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         client.bulk2 = Mock(
             side_effect=lambda *args, **kwargs: gen_temp_csv_files(
                 data=csv_files_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
@@ -326,8 +326,8 @@ def test_download_content_version_list_csv_reading(
 @patch.object(ContentVersionList, "data_file_exist", return_value=False)
 @patch.object(ContentVersionList, "save", return_value=None)
 def test_load_content_version_list_will_call_download_and_save(save_mock, exist_mock, download_mock):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         link_list = []
         doc_ids = []
         for i in range(3):
@@ -352,9 +352,9 @@ def test_load_content_version_list_will_call_download_and_save(save_mock, exist_
 @patch.object(ContentVersionList, "data_file_exist", return_value=False)
 @patch.object(ContentVersionList, "save", return_value=None)
 def test_load_content_version_list_will_call_download_in_batches(save_mock, exist_mock, download_mock):
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
         archivist_obj = ArchivistObject(
-            data_dir=tmpdirname,
+            data_dir=tmp_dir,
             obj_type="User",
         )
         link_list = []
@@ -387,8 +387,8 @@ def test_load_content_version_list_will_call_download_in_batches(save_mock, exis
 @patch.object(ContentVersionList, "load_data_from_file", return_value=None)
 @patch.object(ContentVersionList, "save", return_value=None)
 def test_load_content_version_list_will_load_from_file(save_mock, load_mock, exist_mock, download_mock):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         doc_link_list = Mock()
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
@@ -403,8 +403,8 @@ def test_load_content_version_list_will_load_from_file(save_mock, load_mock, exi
 @patch.object(ContentDocumentLinkList, "data_file_exist", return_value=False)
 @patch.object(ContentDocumentLinkList, "save", return_value=None)
 def test_load_content_document_link_list_will_call_download_and_save(save_mock, exist_mock, download_mock):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         ret_val = salesforce.load_content_document_link_list()
@@ -419,8 +419,8 @@ def test_load_content_document_link_list_will_call_download_and_save(save_mock, 
 @patch.object(ContentDocumentLinkList, "load_data_from_file", return_value=None)
 @patch.object(ContentDocumentLinkList, "save", return_value=None)
 def test_load_content_document_link_list_will_load_from_file(save_mock, load_mock, exist_mock, download_mock):
-    with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         client = SalesforceApiClient(sf_client=Mock())
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         ret_val = salesforce.load_content_document_link_list()
