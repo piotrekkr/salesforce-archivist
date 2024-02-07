@@ -135,7 +135,7 @@ def test_download_stats_add_processed():
 
 @patch.object(concurrent.futures.ThreadPoolExecutor, "submit")
 def test_content_version_download_validator_validate_will_validate_in_parallel(submit_mock):
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
@@ -160,7 +160,7 @@ def test_content_version_download_validator_validate_will_validate_in_parallel(s
 
 
 def test_content_version_download_validator_validate_version_will_find_missing_file():
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version = ContentVersion(id="VID1", document_id="DID", checksum="c1", extension="ext1", title="version1")
     validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
@@ -169,7 +169,7 @@ def test_content_version_download_validator_validate_version_will_find_missing_f
 
 @patch("os.path.exists", return_value=True)
 def test_content_version_download_validator_validate_version_will_check_validated_checksum(exists_mock):
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version_fail = ContentVersion(id="VID1", document_id="DID", checksum="xyz", extension="ext1", title="version1")
     version_ok = ContentVersion(id="VID2", document_id="DID", checksum="abc", extension="ext1", title="version1")
     validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
@@ -191,7 +191,7 @@ def test_content_version_download_validator_validate_version_will_calculate_chec
     file_data: str, checksum: str, should_match: bool
 ):
     with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
         download_path = os.path.join(tmpdirname, "file.txt")
         with open(download_path, "wb") as file:
             file.write(file_data.encode("utf-8"))
@@ -205,7 +205,7 @@ def test_content_version_download_validator_validate_version_will_calculate_chec
 
 def test_content_version_download_validator_validate_version_will_update_validated_list():
     with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
         download_path = os.path.join(tmpdirname, "file.txt")
         data = "test".encode("utf-8")
         data_md5 = hashlib.md5(data).hexdigest()
@@ -221,7 +221,7 @@ def test_content_version_download_validator_validate_version_will_update_validat
 
 @patch("os.path.exists", side_effect=RuntimeError("Test error"))
 def test_content_version_download_validator_validate_version_will_return_invalid_on_exception(exists_mock):
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version = ContentVersion(id="VID1", document_id="DID", checksum="checksum", extension="ext1", title="version1")
     validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)

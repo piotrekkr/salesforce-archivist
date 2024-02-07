@@ -119,7 +119,7 @@ def test_downloaded_content_version_list_is_downloaded():
 
 
 def test_download_content_version_list():
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
@@ -142,7 +142,7 @@ def test_download_content_version_list():
 
 @patch.object(concurrent.futures.ThreadPoolExecutor, "submit")
 def test_content_version_downloader_download_will_download_in_parallel(submit_mock):
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
@@ -175,7 +175,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_add_al
     exist_mock,
 ):
     exist_mock.return_value = True
-    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User", config={})
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version = ContentVersion(id="VID", document_id="DID", checksum="c1", extension="ext1", title="version1")
     downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
     sf_client = Mock()
@@ -191,7 +191,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_add_al
 
 def test_content_version_downloader_download_content_version_from_sf_will_copy_existing_file_to_new_path():
     with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
 
         already_downloaded_path = os.path.join(archivist_obj.data_dir, "files", "file1.txt")
         to_download_path = os.path.join(archivist_obj.data_dir, "files", "file2.txt")
@@ -227,7 +227,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_copy_e
 
 def test_content_version_downloader_download_content_version_from_sf_will_download_from_salesforce():
     with tempfile.TemporaryDirectory() as tmpdirname:
-        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User", config={})
+        archivist_obj = ArchivistObject(data_dir=tmpdirname, obj_type="User")
         version = ContentVersion(id="VID1", document_id="DOC1", checksum="c1", extension="ext1", title="version1")
         downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
 

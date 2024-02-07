@@ -1,6 +1,6 @@
 import datetime
 import os.path
-from typing import Any, Generator
+from typing import Generator
 
 import click
 import yaml
@@ -14,12 +14,20 @@ from salesforce_archivist.salesforce.validation import ValidatedContentVersionLi
 
 
 class ArchivistObject:
-    def __init__(self, data_dir: str, obj_type: str, config: dict[str, Any]):
+    def __init__(
+        self,
+        data_dir: str,
+        obj_type: str,
+        # config: dict[str, Any],
+        modified_date_lt: datetime.datetime | None = None,
+        modified_date_gt: datetime.datetime | None = None,
+        dir_name_field: str | None = None,
+    ):
         self._data_dir: str = os.path.join(data_dir, obj_type)
         self._obj_type: str = obj_type
-        self._modified_date_lt: datetime.datetime | None = config.get("modified_date_lt")
-        self._modified_date_gt: datetime.datetime | None = config.get("modified_date_gt")
-        self._dir_name_field: str | None = config.get("dir_name_field")
+        self._modified_date_lt: datetime.datetime | None = modified_date_lt
+        self._modified_date_gt: datetime.datetime | None = modified_date_gt
+        self._dir_name_field: str | None = dir_name_field
 
     @property
     def data_dir(self) -> str:
@@ -93,9 +101,17 @@ class ArchivistConfig:
         self._auth: ArchivistAuth = ArchivistAuth(config["auth"])
         self._data_dir: str = config["data_dir"]
         self._max_api_usage_percent: float = config["max_api_usage_percent"]
-        self._objects = [
-            ArchivistObject(self._data_dir, obj_type, config) for obj_type, config in config["objects"].items()
-        ]
+        self._objects = []
+        for obj_type, config in config["objects"].items():
+            self._objects.append(
+                ArchivistObject(
+                    data_dir=self._data_dir,
+                    obj_type=obj_type,
+                    modified_date_lt=config.get("modified_date_lt"),
+                    modified_date_gt=config.get("modified_date_gt"),
+                    dir_name_field=config.get("modified_date_lt"),
+                )
+            )
 
     @property
     def data_dir(self) -> str:
