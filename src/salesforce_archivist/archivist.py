@@ -1,6 +1,6 @@
 import datetime
 import os.path
-from typing import Generator
+from typing import Generator, Any
 
 import click
 import yaml
@@ -49,13 +49,24 @@ class ArchivistObject:
     def dir_name_field(self) -> str | None:
         return self._dir_name_field
 
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return (self.data_dir, self.dir_name_field, self.obj_type, self.modified_date_gt, self.modified_date_lt) == (
+            other.data_dir,
+            other.dir_name_field,
+            other.obj_type,
+            other.modified_date_gt,
+            other.modified_date_lt,
+        )
+
 
 class ArchivistAuth:
-    def __init__(self, config: dict[str, str]):
-        self._login_url = config["instance_url"]
-        self._username = config["username"]
-        self._consumer_key = config["consumer_key"]
-        self._private_key = config["private_key"]
+    def __init__(self, login_url: str, username: str, consumer_key: str, private_key: str):
+        self._login_url = login_url
+        self._username = username
+        self._consumer_key = consumer_key
+        self._private_key = private_key
 
     @property
     def login_url(self) -> str:
@@ -98,7 +109,7 @@ class ArchivistConfig:
     def __init__(self, path: str):
         with open(path) as file:
             config = self._schema.validate(yaml.load(file, Loader=yaml.FullLoader))
-        self._auth: ArchivistAuth = ArchivistAuth(config["auth"])
+        self._auth: ArchivistAuth = ArchivistAuth(**config["auth"])
         self._data_dir: str = config["data_dir"]
         self._max_api_usage_percent: float = config["max_api_usage_percent"]
         self._objects = []
