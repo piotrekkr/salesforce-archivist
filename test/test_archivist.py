@@ -1,9 +1,11 @@
 import datetime
 import os.path
+import tempfile
 
 import pytest
+import schema
 
-from salesforce_archivist.archivist import ArchivistObject, ArchivistAuth
+from salesforce_archivist.archivist import ArchivistObject, ArchivistAuth, ArchivistConfig
 
 
 @pytest.mark.parametrize(
@@ -69,11 +71,86 @@ def test_archivist_object_quality():
 
 
 def test_archivist_auth_props():
-    (login_url, username, consumer_key, private_key) = ("http://exmple.com", "username", "consumer_key", "private_key")
-    auth = ArchivistAuth(login_url=login_url, username=username, consumer_key=consumer_key, private_key=private_key)
-    assert (login_url, username, consumer_key, private_key) == (
-        auth.login_url,
+    (instance_url, username, consumer_key, private_key) = (
+        "http://exmple.com",
+        "username",
+        "consumer_key",
+        "private_key",
+    )
+    auth = ArchivistAuth(
+        instance_url=instance_url, username=username, consumer_key=consumer_key, private_key=private_key
+    )
+    assert (instance_url, username, consumer_key, private_key) == (
+        auth.instance_url,
         auth.username,
         auth.consumer_key,
         auth.private_key,
     )
+
+
+@pytest.mark.parametrize(
+    "yaml_data, expect_exception",
+    [
+        (
+            """\
+data_dir: {data_dir}
+max_api_usage_percent: 50
+auth:
+  instance_url: https://login.salesforce.com/
+  username: test
+  consumer_key: abc
+  private_key: !!binary |
+    dGVzdAo=
+
+objects:
+  User:
+    modified_date_gt: 2017-01-01T00:00:00Z
+    modified_date_lt: 2023-08-01T00:00:00Z
+    dir_name_field: LinkedEntity.Username
+""",
+            False,
+        ),
+        (
+            """\
+data_dir: {data_dir}
+max_api_usage_percent: 50
+auth:
+  instance_url: https://login.salesforce.com/
+  username: test
+  consumer_key: abc
+  private_key: !!binary |
+    dGVzdAo=
+
+objects:
+  User: {}
+""",
+            False,
+        ),
+        (
+            """\
+data_dir: {data_dir}
+max_api_usage_percent: 50
+auth:
+  instance_url: https://login.salesforce.com/
+  consumer_key: abc
+  private_key: !!binary |
+    dGVzdAo=
+
+objects:
+  User: {}
+""",
+            True,
+        ),
+    ],
+)
+def test_archivist_config_validation(yaml_data, expect_exception):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        path = os.path.join(tmp_dir, "config.yml")
+        with open(path, "wb") as config:
+            data = yaml_data.replace("{data_dir}", tmp_dir)
+            config.write(data.encode("utf-8"))
+        if expect_exception:
+            with pytest.raises(schema.SchemaError):
+                ArchivistConfig(path)
+        else:
+            ArchivistConfig(path)

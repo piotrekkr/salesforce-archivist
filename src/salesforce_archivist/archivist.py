@@ -62,15 +62,15 @@ class ArchivistObject:
 
 
 class ArchivistAuth:
-    def __init__(self, login_url: str, username: str, consumer_key: str, private_key: str):
-        self._login_url = login_url
+    def __init__(self, instance_url: str, username: str, consumer_key: str, private_key: str):
+        self._instance_url = instance_url
         self._username = username
         self._consumer_key = consumer_key
         self._private_key = private_key
 
     @property
-    def login_url(self) -> str:
-        return self._login_url
+    def instance_url(self) -> str:
+        return self._instance_url
 
     @property
     def username(self) -> str:
@@ -98,7 +98,6 @@ class ArchivistConfig:
             },
             "objects": {
                 str: {
-                    # "query": And(str, len),
                     Optional(Or("modified_date_gt", "modified_date_lt")): lambda d: isinstance(d, datetime.datetime),
                     Optional("dir_name_field"): And(str, len),
                 }
@@ -145,7 +144,7 @@ class Archivist:
     def __init__(self, config: ArchivistConfig):
         self._config = config
         self._sf_client = SalesforceClient(
-            instance_url=config.auth.login_url,
+            instance_url=config.auth.instance_url,
             username=config.auth.username,
             consumer_key=config.auth.consumer_key,
             privatekey=config.auth.private_key,
