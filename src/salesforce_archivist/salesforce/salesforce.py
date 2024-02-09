@@ -93,10 +93,8 @@ class Salesforce:
             data_dir=self._archivist_obj.data_dir, dir_name_field=self._archivist_obj.dir_name_field
         )
         if not document_link_list.data_file_exist():
-            try:
-                self.download_content_document_link_list(document_link_list=document_link_list)
-            finally:
-                document_link_list.save()
+            self.download_content_document_link_list(document_link_list=document_link_list)
+            document_link_list.save()
         else:
             document_link_list.load_data_from_file()
 
@@ -109,21 +107,19 @@ class Salesforce:
     ) -> ContentVersionList:
         content_version_list = ContentVersionList(data_dir=self._archivist_obj.data_dir)
         if not content_version_list.data_file_exist():
-            try:
-                doc_id_list = [link.content_document_id for link in document_link_list]
-                list_size = len(doc_id_list)
-                all_batches = ceil(list_size / batch_size)
+            doc_id_list = [link.content_document_id for link in document_link_list]
+            list_size = len(doc_id_list)
+            all_batches = ceil(list_size / batch_size)
 
-                for batch in range(1, all_batches + 1):
-                    start = (batch - 1) * batch_size
-                    end = start + batch_size
-                    doc_id_batch = doc_id_list[start:end]
-                    self.download_content_version_list(
-                        document_ids=doc_id_batch,
-                        content_version_list=content_version_list,
-                    )
-            finally:
-                content_version_list.save()
+            for batch in range(1, all_batches + 1):
+                start = (batch - 1) * batch_size
+                end = start + batch_size
+                doc_id_batch = doc_id_list[start:end]
+                self.download_content_version_list(
+                    document_ids=doc_id_batch,
+                    content_version_list=content_version_list,
+                )
+            content_version_list.save()
         else:
             content_version_list.load_data_from_file()
 

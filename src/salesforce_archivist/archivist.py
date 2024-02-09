@@ -1,6 +1,6 @@
 import datetime
 import os.path
-from typing import Generator, Any
+from typing import Any
 
 import click
 import yaml
@@ -136,8 +136,8 @@ class ArchivistConfig:
         return self._auth
 
     @property
-    def objects(self) -> Generator:
-        yield from self._objects
+    def objects(self) -> list[ArchivistObject]:
+        return self._objects
 
 
 class Archivist:
@@ -150,25 +150,32 @@ class Archivist:
             privatekey=config.auth.private_key,
         )
         self._downloaded_version_list = DownloadedContentVersionList(self._config.data_dir)
+        self._archivist_obj: ArchivistObject | None = None
 
     def download(self) -> None:
         downloaded_content_versions_list = DownloadedContentVersionList(self._config.data_dir)
         if downloaded_content_versions_list.data_file_exist():
             downloaded_content_versions_list.load_data_from_file()
 
+        global_stats = {
+            "total": 0,
+            "processed": 0,
+            "errors": 0,
+        }
         for archivist_obj in self._config.objects:
+            obj_type = archivist_obj.obj_type
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
                 client=SalesforceApiClient(self._sf_client),
                 max_api_usage_percent=self._config.max_api_usage_percent,
             )
-            click.echo("Downloading document link list.")
+            self._print_msg(msg="Downloading document link list.", obj_type=obj_type)
             document_link_list = salesforce.load_content_document_link_list()
-            click.echo("Done.")
-            click.echo("Downloading content version list.")
+            self._print_msg(msg="Done.", obj_type=obj_type)
+            self._print_msg(msg="Downloading content version list.", obj_type=obj_type)
             content_version_list = salesforce.load_content_version_list(document_link_list=document_link_list)
-            click.echo("Done.")
-            click.echo("Downloading files.")
+            self._print_msg(msg="Done.", obj_type=obj_type)
+            self._print_msg(msg="Downloading files.", obj_type=obj_type)
             download_list = DownloadContentVersionList(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
@@ -178,22 +185,30 @@ class Archivist:
                 download_content_version_list=download_list,
                 downloaded_content_version_list=downloaded_content_versions_list,
             )
-            click.echo(
-                "Downloaded {processed} files. Encountered {errors} errors".format(
-                    processed=stats.processed, errors=stats.errors
-                )
-            )
-            if stats.errors > 0:
-                click.secho("[FAILED] Download finished with errors.", fg="red")
-            else:
-                click.secho("[SUCCESS] Download finished without any errors.", fg="green")
+            global_stats["total"] += stats.total
+            global_stats["processed"] += stats.processed
+            global_stats["errors"] += stats.errors
+
+        status = "SUCCESS" if global_stats["invalid"] == 0 else "FAILED"
+        color = "green" if global_stats["invalid"] == 0 else "red"
+        click.secho(
+            "[{status}] Download finished. Processed {processed}/{total}, {errors} errors.".format(
+                status=status, **global_stats
+            ),
+            fg=color,
+        )
 
     def validate(self) -> None:
         validated_versions_list = ValidatedContentVersionList(self._config.data_dir)
         if validated_versions_list.data_file_exist():
             validated_versions_list.load_data_from_file()
-
+        global_stats = {
+            "total": 0,
+            "processed": 0,
+            "invalid": 0,
+        }
         for archivist_obj in self._config.objects:
+            self._archivist_obj = archivist_obj
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
                 client=SalesforceApiClient(self._sf_client),
@@ -203,7 +218,6 @@ class Archivist:
             content_version_list = salesforce.load_content_version_list(
                 document_link_list=document_link_list,
             )
-
             download_list = DownloadContentVersionList(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
@@ -212,12 +226,18 @@ class Archivist:
             stats = salesforce.validate_download(
                 download_content_version_list=download_list, validated_content_version_list=validated_versions_list
             )
-            click.echo(
-                "Processed {processed} downloaded files. Found {invalid} invalid downloads".format(
-                    processed=stats.processed, invalid=stats.invalid
-                )
-            )
-            if stats.invalid > 0:
-                click.secho("[FAILED] Validation finished with errors.", fg="red")
-            else:
-                click.secho("[SUCCESS] Validation finished without any errors.", fg="green")
+            global_stats["total"] += stats.total
+            global_stats["processed"] += stats.processed
+            global_stats["invalid"] += stats.invalid
+        status = "SUCCESS" if global_stats["invalid"] == 0 else "FAILED"
+        color = "green" if global_stats["invalid"] == 0 else "red"
+        click.secho(
+            "[{status}] Download validation finished. Processed {processed}/{total}, {invalid} errors.".format(
+                status=status, **global_stats
+            ),
+            fg=color,
+        )
+
+    @staticmethod
+    def _print_msg(msg: str, obj_type: str, fg: str | None = None) -> None:
+        click.secho("[{obj_type}] {msg}".format(obj_type=obj_type, msg=msg), fg=fg)

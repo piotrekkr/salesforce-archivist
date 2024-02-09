@@ -189,7 +189,7 @@ def test_archivist_config_props():
         assert config.auth.instance_url == "https://login.salesforce.com/"
         assert config.auth.consumer_key == "abc"
         assert config.auth.private_key == "test\n"
-        archivist_object = next(config.objects)
+        archivist_object = config.objects[0]
         assert archivist_object.obj_type == "User"
         assert archivist_object.data_dir == os.path.join(config.data_dir, archivist_object.obj_type)
         assert archivist_object.dir_name_field == "LinkedEntity.Username"
