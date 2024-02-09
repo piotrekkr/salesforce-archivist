@@ -119,7 +119,7 @@ class ArchivistConfig:
                     obj_type=obj_type,
                     modified_date_lt=config.get("modified_date_lt"),
                     modified_date_gt=config.get("modified_date_gt"),
-                    dir_name_field=config.get("modified_date_lt"),
+                    dir_name_field=config.get("dir_name_field"),
                 )
             )
 

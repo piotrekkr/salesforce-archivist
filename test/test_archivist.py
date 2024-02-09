@@ -1,6 +1,7 @@
 import datetime
 import os.path
 import tempfile
+import textwrap
 
 import pytest
 import schema
@@ -154,3 +155,47 @@ def test_archivist_config_validation(yaml_data, expect_exception):
                 ArchivistConfig(path)
         else:
             ArchivistConfig(path)
+
+
+def test_archivist_config_props():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        yaml = textwrap.dedent(
+            """\
+        data_dir: {data_dir}
+        max_api_usage_percent: 40
+        auth:
+          instance_url: https://login.salesforce.com/
+          username: test
+          consumer_key: abc
+          private_key: !!binary |
+            dGVzdAo=
+
+        objects:
+          User:
+            modified_date_gt: 2017-01-01T00:00:00Z
+            modified_date_lt: 2023-08-01T00:00:00Z
+            dir_name_field: LinkedEntity.Username"""
+        ).format(data_dir=tmp_dir)
+        path = "config.yml"
+        with open(path, "wb") as config:
+            config.write(yaml.encode("utf-8"))
+
+        config = ArchivistConfig(path)
+
+        assert config.data_dir == tmp_dir
+        assert config.max_api_usage_percent == 40.0
+        assert isinstance(config.auth, ArchivistAuth)
+        assert config.auth.username == "test"
+        assert config.auth.instance_url == "https://login.salesforce.com/"
+        assert config.auth.consumer_key == "abc"
+        assert config.auth.private_key == "test\n"
+        archivist_object = next(config.objects)
+        assert archivist_object.obj_type == "User"
+        assert archivist_object.data_dir == os.path.join(config.data_dir, archivist_object.obj_type)
+        assert archivist_object.dir_name_field == "LinkedEntity.Username"
+        assert archivist_object.modified_date_gt == datetime.datetime(
+            year=2017, month=1, day=1, tzinfo=datetime.timezone.utc
+        )
+        assert archivist_object.modified_date_lt == datetime.datetime(
+            year=2023, month=8, day=1, tzinfo=datetime.timezone.utc
+        )
