@@ -141,19 +141,20 @@ class ArchivistConfig:
 
 
 class Archivist:
-    def __init__(self, config: ArchivistConfig):
-        self._config = config
-        self._sf_client = SalesforceClient(
-            instance_url=config.auth.instance_url,
-            username=config.auth.username,
-            consumer_key=config.auth.consumer_key,
-            privatekey=config.auth.private_key,
-        )
-        self._downloaded_version_list = DownloadedContentVersionList(self._config.data_dir)
-        self._archivist_obj: ArchivistObject | None = None
+    def __init__(
+        self,
+        data_dir: str,
+        objects: list[ArchivistObject],
+        sf_client: SalesforceClient,
+        max_api_usage_percent: float | None = None,
+    ):
+        self._max_api_usage_percent = max_api_usage_percent
+        self._objects = objects
+        self._data_dir = data_dir
+        self._sf_client = sf_client
 
     def download(self) -> None:
-        downloaded_content_versions_list = DownloadedContentVersionList(self._config.data_dir)
+        downloaded_content_versions_list = DownloadedContentVersionList(self._data_dir)
         if downloaded_content_versions_list.data_file_exist():
             downloaded_content_versions_list.load_data_from_file()
 
@@ -162,12 +163,12 @@ class Archivist:
             "processed": 0,
             "errors": 0,
         }
-        for archivist_obj in self._config.objects:
+        for archivist_obj in self._objects:
             obj_type = archivist_obj.obj_type
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
                 client=SalesforceApiClient(self._sf_client),
-                max_api_usage_percent=self._config.max_api_usage_percent,
+                max_api_usage_percent=self._max_api_usage_percent,
             )
             self._print_msg(msg="Downloading document link list.", obj_type=obj_type)
             document_link_list = salesforce.load_content_document_link_list()
@@ -189,8 +190,8 @@ class Archivist:
             global_stats["processed"] += stats.processed
             global_stats["errors"] += stats.errors
 
-        status = "SUCCESS" if global_stats["invalid"] == 0 else "FAILED"
-        color = "green" if global_stats["invalid"] == 0 else "red"
+        status = "SUCCESS" if global_stats["errors"] == 0 else "FAILED"
+        color = "green" if global_stats["errors"] == 0 else "red"
         click.secho(
             "[{status}] Download finished. Processed {processed}/{total}, {errors} errors.".format(
                 status=status, **global_stats
@@ -199,7 +200,7 @@ class Archivist:
         )
 
     def validate(self) -> None:
-        validated_versions_list = ValidatedContentVersionList(self._config.data_dir)
+        validated_versions_list = ValidatedContentVersionList(self._data_dir)
         if validated_versions_list.data_file_exist():
             validated_versions_list.load_data_from_file()
         global_stats = {
@@ -207,12 +208,11 @@ class Archivist:
             "processed": 0,
             "invalid": 0,
         }
-        for archivist_obj in self._config.objects:
-            self._archivist_obj = archivist_obj
+        for archivist_obj in self._objects:
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
                 client=SalesforceApiClient(self._sf_client),
-                max_api_usage_percent=self._config.max_api_usage_percent,
+                max_api_usage_percent=self._max_api_usage_percent,
             )
             document_link_list = salesforce.load_content_document_link_list()
             content_version_list = salesforce.load_content_version_list(

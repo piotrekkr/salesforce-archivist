@@ -2,6 +2,7 @@ import click
 from click import Context
 
 from salesforce_archivist.archivist import Archivist, ArchivistConfig
+from simple_salesforce import Salesforce as SalesforceClient
 
 
 @click.group()
@@ -15,7 +16,18 @@ def cli(ctx: Context) -> None:
 @click.pass_context
 def download(ctx: Context) -> None:
     config: ArchivistConfig = ctx.obj["config"]
-    archivist = Archivist(config)
+    sf_client = SalesforceClient(
+        instance_url=config.auth.instance_url,
+        username=config.auth.username,
+        consumer_key=config.auth.consumer_key,
+        privatekey=config.auth.private_key,
+    )
+    archivist = Archivist(
+        data_dir=config.data_dir,
+        objects=config.objects,
+        sf_client=sf_client,
+        max_api_usage_percent=config.max_api_usage_percent,
+    )
     archivist.download()
 
 
@@ -23,7 +35,18 @@ def download(ctx: Context) -> None:
 @click.pass_context
 def validate(ctx: Context) -> None:
     config: ArchivistConfig = ctx.obj["config"]
-    archivist = Archivist(config)
+    sf_client = SalesforceClient(
+        instance_url=config.auth.instance_url,
+        username=config.auth.username,
+        consumer_key=config.auth.consumer_key,
+        privatekey=config.auth.private_key,
+    )
+    archivist = Archivist(
+        data_dir=config.data_dir,
+        objects=config.objects,
+        sf_client=sf_client,
+        max_api_usage_percent=config.max_api_usage_percent,
+    )
     archivist.validate()
 
 
