@@ -129,7 +129,7 @@ def test_download_content_version_list():
     )
     version_list.add_version(version=version)
     download = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, archivist_obj=archivist_obj
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
     )
     generator = download.__iter__()
     assert next(generator) == (
@@ -158,7 +158,7 @@ def test_content_version_downloader_download_will_download_in_parallel(submit_mo
         )
     )
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, archivist_obj=archivist_obj
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
     )
     downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
     sf_client = Mock()

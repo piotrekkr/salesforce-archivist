@@ -151,7 +151,7 @@ def test_content_version_download_validator_validate_will_validate_in_parallel(s
         )
     )
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, archivist_obj=archivist_obj
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
     )
     validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)

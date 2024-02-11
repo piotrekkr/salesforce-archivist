@@ -10,6 +10,7 @@ import schema
 from salesforce_archivist.archivist import ArchivistObject, ArchivistAuth, ArchivistConfig, Archivist
 from salesforce_archivist.salesforce.download import DownloadedContentVersionList, DownloadStats
 from salesforce_archivist.salesforce.salesforce import Salesforce
+from salesforce_archivist.salesforce.validation import ValidatedContentVersionList, ValidationStats
 
 
 @pytest.mark.parametrize(
@@ -219,10 +220,10 @@ def test_archivist_download_will_load_downloaded_list_if_possible(load_mock, exi
 @patch.object(Salesforce, "load_content_document_link_list")
 @patch.object(Salesforce, "load_content_version_list")
 @patch.object(Salesforce, "download_files")
-def test_archivist_download_will_load_lists_and_call_download_files(
-    download_files_mock, load_version_list_mock, load_doc_link_list_mock
+def test_archivist_download_will_load_lists_and_call_download_method(
+    download_mock, load_version_list_mock, load_doc_link_list_mock
 ):
-    download_files_mock.return_value = DownloadStats()
+    download_mock.return_value = DownloadStats()
     objects = [
         ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
         ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
@@ -231,4 +232,34 @@ def test_archivist_download_will_load_lists_and_call_download_files(
     archivist.download()
     assert load_doc_link_list_mock.call_count == 2
     assert load_version_list_mock.call_count == 2
-    assert download_files_mock.call_count == 2
+    assert download_mock.call_count == 2
+
+
+@patch.object(ValidatedContentVersionList, "data_file_exist", side_effect=[False, True])
+@patch.object(ValidatedContentVersionList, "load_data_from_file")
+def test_archivist_validate_will_load_validated_list_if_possible(load_mock, exist_mock):
+    archivist = Archivist(data_dir="/fake/dir", objects=[], sf_client=MagicMock())
+    archivist.validate()
+    exist_mock.assert_called_once()
+    load_mock.assert_not_called()
+    archivist.validate()
+    assert exist_mock.call_count == 2
+    load_mock.assert_called_once()
+
+
+@patch.object(Salesforce, "load_content_document_link_list")
+@patch.object(Salesforce, "load_content_version_list")
+@patch.object(Salesforce, "validate_download")
+def test_archivist_validate_will_load_lists_and_call_validate_method(
+    validate_mock, load_version_list_mock, load_doc_link_list_mock
+):
+    validate_mock.return_value = ValidationStats()
+    objects = [
+        ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
+        ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
+    ]
+    archivist = Archivist(data_dir="/fake/dir", objects=objects, sf_client=MagicMock())
+    archivist.validate()
+    assert load_doc_link_list_mock.call_count == 2
+    assert load_version_list_mock.call_count == 2
+    assert validate_mock.call_count == 2

@@ -1,21 +1,16 @@
-from __future__ import annotations
-
 import concurrent.futures
 import csv
 import os
 import shutil
 import threading
 from time import sleep
-from typing import TYPE_CHECKING, Generator, Any
+from typing import Generator, Any
 
 import click
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
 from salesforce_archivist.salesforce.content_document_link import ContentDocumentLinkList
 from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
-
-if TYPE_CHECKING:
-    from salesforce_archivist.archivist import ArchivistObject
 
 
 class DownloadedContentVersion:
@@ -98,11 +93,11 @@ class DownloadContentVersionList:
         self,
         document_link_list: ContentDocumentLinkList,
         content_version_list: ContentVersionList,
-        archivist_obj: ArchivistObject,
+        data_dir: str,
     ):
         self._document_link_list = document_link_list
         self._content_version_list = content_version_list
-        self._archivist_obj = archivist_obj
+        self._data_dir = data_dir
         self._to_download: list[tuple[ContentVersion, str]] | None = None
 
     def _generate_download_list(self) -> list[tuple[ContentVersion, str]]:
@@ -111,7 +106,7 @@ class DownloadContentVersionList:
             for link in self._document_link_list:
                 for version in self._content_version_list.get_content_versions_for_link(link):
                     path = os.path.join(
-                        self._archivist_obj.data_dir,
+                        self._data_dir,
                         "files",
                         link.download_dir_name,
                         version.filename,

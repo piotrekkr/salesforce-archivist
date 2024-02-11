@@ -180,7 +180,7 @@ class Archivist:
             download_list = DownloadContentVersionList(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
-                archivist_obj=archivist_obj,
+                data_dir=archivist_obj.data_dir,
             )
             stats = salesforce.download_files(
                 download_content_version_list=download_list,
@@ -221,7 +221,7 @@ class Archivist:
             download_list = DownloadContentVersionList(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
-                archivist_obj=archivist_obj,
+                data_dir=archivist_obj.data_dir,
             )
             stats = salesforce.validate_download(
                 download_content_version_list=download_list, validated_content_version_list=validated_versions_list
