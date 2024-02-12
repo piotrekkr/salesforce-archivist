@@ -2,7 +2,7 @@ import datetime
 import os.path
 import tempfile
 import textwrap
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call, ANY
 
 import pytest
 import schema
@@ -258,8 +258,12 @@ def test_archivist_validate_will_load_lists_and_call_validate_method(
         ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
         ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
     ]
-    archivist = Archivist(data_dir="/fake/dir", objects=objects, sf_client=MagicMock())
+    max_workers = 6
+    archivist = Archivist(data_dir="/fake/dir", objects=objects, sf_client=MagicMock(), max_workers=max_workers)
     archivist.validate()
     assert load_doc_link_list_mock.call_count == 2
     assert load_version_list_mock.call_count == 2
-    assert validate_mock.call_count == 2
+    assert validate_mock.mock_calls == [
+        call(download_content_version_list=ANY, validated_content_version_list=ANY, max_workers=max_workers),
+        call(download_content_version_list=ANY, validated_content_version_list=ANY, max_workers=max_workers),
+    ]

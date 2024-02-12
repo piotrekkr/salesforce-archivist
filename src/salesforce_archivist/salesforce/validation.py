@@ -166,7 +166,7 @@ class ContentVersionDownloadValidator:
 
         return not invalid
 
-    def validate(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> ValidationStats:
+    def validate(self, download_list: DownloadContentVersionList, max_workers: int | None = None) -> ValidationStats:
         self._stats.initialize(total=len(download_list))
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for version, download_path in download_list:

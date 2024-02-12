@@ -27,6 +27,7 @@ def download(ctx: Context) -> None:
         objects=config.objects,
         sf_client=sf_client,
         max_api_usage_percent=config.max_api_usage_percent,
+        max_workers=config.max_workers,
     )
     archivist.download()
 
@@ -46,6 +47,7 @@ def validate(ctx: Context) -> None:
         objects=config.objects,
         sf_client=sf_client,
         max_api_usage_percent=config.max_api_usage_percent,
+        max_workers=config.max_workers,
     )
     archivist.validate()
 

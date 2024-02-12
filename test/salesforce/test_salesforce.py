@@ -478,6 +478,7 @@ def test_validate_download_will_call_validate_and_save():
             salesforce.validate_download(
                 download_content_version_list=download_content_version_list,
                 validated_content_version_list=validated_content_version_list,
+                max_workers=5,
             )
         validate_mock.assert_has_calls(
             [

@@ -240,7 +240,7 @@ class ContentVersionDownloader:
                 self._stats.add_processed(error=error)
                 self._print_download_msg(msg, error=error)
 
-    def download(self, download_list: DownloadContentVersionList, max_workers: int = 5) -> DownloadStats:
+    def download(self, download_list: DownloadContentVersionList, max_workers: int | None = None) -> DownloadStats:
         self._stats.initialize(total=len(download_list))
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for version, download_path in download_list:

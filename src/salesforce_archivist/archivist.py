@@ -18,7 +18,6 @@ class ArchivistObject:
         self,
         data_dir: str,
         obj_type: str,
-        # config: dict[str, Any],
         modified_date_lt: datetime.datetime | None = None,
         modified_date_gt: datetime.datetime | None = None,
         dir_name_field: str | None = None,
@@ -90,6 +89,7 @@ class ArchivistConfig:
         {
             "data_dir": And(str, len, os.path.isdir, error="data_dir must be set and be a directory"),
             "max_api_usage_percent": Or(int, float, Use(float), lambda v: 0.0 < v <= 100.0),
+            Optional("max_workers"): Optional(int, lambda v: 0 < v),
             "auth": {
                 "instance_url": And(str, len),
                 "username": And(str, len),
@@ -111,6 +111,7 @@ class ArchivistConfig:
         self._auth: ArchivistAuth = ArchivistAuth(**config["auth"])
         self._data_dir: str = config["data_dir"]
         self._max_api_usage_percent: float = config["max_api_usage_percent"]
+        self._max_workers: int = config.get("max_workers")
         self._objects = []
         for obj_type, config in config["objects"].items():
             self._objects.append(
@@ -126,6 +127,10 @@ class ArchivistConfig:
     @property
     def data_dir(self) -> str:
         return self._data_dir
+
+    @property
+    def max_workers(self) -> int:
+        return self._max_workers
 
     @property
     def max_api_usage_percent(self) -> float:
@@ -147,11 +152,13 @@ class Archivist:
         objects: list[ArchivistObject],
         sf_client: SalesforceClient,
         max_api_usage_percent: float | None = None,
+        max_workers: int | None = None,
     ):
         self._max_api_usage_percent = max_api_usage_percent
         self._objects = objects
         self._data_dir = data_dir
         self._sf_client = sf_client
+        self._max_workers = max_workers
 
     def download(self) -> None:
         downloaded_content_versions_list = DownloadedContentVersionList(self._data_dir)
@@ -185,6 +192,7 @@ class Archivist:
             stats = salesforce.download_files(
                 download_content_version_list=download_list,
                 downloaded_content_version_list=downloaded_content_versions_list,
+                max_workers=self._max_workers,
             )
             global_stats["total"] += stats.total
             global_stats["processed"] += stats.processed
@@ -224,7 +232,9 @@ class Archivist:
                 data_dir=archivist_obj.data_dir,
             )
             stats = salesforce.validate_download(
-                download_content_version_list=download_list, validated_content_version_list=validated_versions_list
+                download_content_version_list=download_list,
+                validated_content_version_list=validated_versions_list,
+                max_workers=self._max_workers,
             )
             global_stats["total"] += stats.total
             global_stats["processed"] += stats.processed

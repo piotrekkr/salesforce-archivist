@@ -154,7 +154,7 @@ class Salesforce:
         self,
         download_content_version_list: DownloadContentVersionList,
         downloaded_content_version_list: DownloadedContentVersionList,
-        max_workers: int = 5,
+        max_workers: int | None = None,
     ) -> DownloadStats:
         try:
             downloader = ContentVersionDownloader(
@@ -170,7 +170,7 @@ class Salesforce:
     def validate_download(
         download_content_version_list: DownloadContentVersionList,
         validated_content_version_list: ValidatedContentVersionList,
-        max_workers: int = 5,
+        max_workers: int | None = None,
     ) -> ValidationStats:
         try:
             validator = ContentVersionDownloadValidator(
