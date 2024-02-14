@@ -132,9 +132,10 @@ class Salesforce:
         max_records: int = 50000,
     ) -> None:
         tmp_dir = self._init_tmp_dir()
-        query = "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension FROM ContentVersion WHERE ContentDocumentId IN ({id_list})".strip().format(
-            id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids])
-        )
+        query = (
+            "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber "
+            "FROM ContentVersion WHERE ContentDocumentId IN ({id_list})"
+        ).format(id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids]))
         self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
         for path in glob.glob(os.path.join(tmp_dir, "*.csv")):
             with open(path) as file:
@@ -147,6 +148,7 @@ class Salesforce:
                         checksum=row[2],
                         title=row[3],
                         extension=row[4],
+                        version_number=int(row[5]),
                     )
                     content_version_list.add_version(version)
 

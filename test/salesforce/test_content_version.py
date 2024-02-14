@@ -12,22 +12,35 @@ from salesforce_archivist.salesforce.content_version import ContentVersion, Cont
 
 
 def test_content_version_properties():
-    vid, did, title, ext, checksum = ("ID", "DOC_ID", 'TITLE with /\\?%*:|"<> chars', "test", "CHECKSUM")
-    version = ContentVersion(id=vid, document_id=did, title=title, extension=ext, checksum=checksum)
+    vid, did, title, ext, checksum, version_number = (
+        "ID",
+        "DOC_ID",
+        'TITLE with /\\?%*:|"<> chars',
+        "test",
+        "CHECKSUM",
+        1,
+    )
+    version = ContentVersion(
+        id=vid, document_id=did, title=title, extension=ext, checksum=checksum, version_number=version_number
+    )
     assert version.id == vid
     assert version.document_id == did
     assert version.title == title
     assert version.extension == ext
     assert version.checksum == checksum
-    assert version.filename == "{id}_{title}.{extension}".format(
-        id=vid, title=re.sub(r'[/\\?%*:|"<>]', "-", title), extension=ext
+    assert version.filename == "{id}_{version_number}_{title}.{extension}".format(
+        id=vid, title=re.sub(r'[/\\?%*:|"<>]', "-", title), extension=ext, version_number=version_number
     )
 
 
 def test_content_version_equality():
-    vid, did, title, ext, checksum = ("ID", "DOC_ID", "TITLE", "test", "CHECKSUM")
-    version1 = ContentVersion(id=vid, document_id=did, title=title, extension=ext, checksum=checksum)
-    version2 = ContentVersion(id=vid, document_id=did, title=title, extension=ext, checksum=checksum)
+    vid, did, title, ext, checksum, version_number = ("ID", "DOC_ID", "TITLE", "test", "CHECKSUM", 1)
+    version1 = ContentVersion(
+        id=vid, document_id=did, title=title, extension=ext, checksum=checksum, version_number=version_number
+    )
+    version2 = ContentVersion(
+        id=vid, document_id=did, title=title, extension=ext, checksum=checksum, version_number=version_number
+    )
     assert version1 == version2
 
 
@@ -46,14 +59,14 @@ def test_content_version_list_data_file_exist(exists_mock):
     [
         [
             [
-                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension"],
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber"],
             ],
         ],
         [
             [
-                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension"],
-                ["Id_1", "ContentDocumentId_1", "Checksum_1", "Title_1", "ext1"],
-                ["Id_2", "ContentDocumentId_2", "Checksum_2", "Title_2", "ext2"],
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber"],
+                ["Id_1", "ContentDocumentId_1", "Checksum_1", "Title_1", "ext1", "1"],
+                ["Id_2", "ContentDocumentId_2", "Checksum_2", "Title_2", "ext2", "1"],
             ],
         ],
     ],
@@ -71,7 +84,12 @@ def test_content_version_list_load_data_from_file(csv_data):
                 expected_calls.append(
                     call(
                         version=ContentVersion(
-                            id=row[0], document_id=row[1], checksum=row[2], title=row[3], extension=row[4]
+                            id=row[0],
+                            document_id=row[1],
+                            checksum=row[2],
+                            title=row[3],
+                            extension=row[4],
+                            version_number=row[5],
                         )
                     )
                 )
@@ -82,8 +100,12 @@ def test_content_version_list_save():
     with tempfile.TemporaryDirectory() as tmp_dir:
         version_list = ContentVersionList(data_dir=tmp_dir)
         to_save = [
-            ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1"),
-            ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2"),
+            ContentVersion(
+                id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1", version_number=1
+            ),
+            ContentVersion(
+                id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2", version_number=1
+            ),
         ]
         for version in to_save:
             version_list.add_version(version=version)
@@ -97,7 +119,9 @@ def test_content_version_list_save():
 
 def test_content_version_list_get_content_version():
     version_list = ContentVersionList(data_dir="/fake/dir")
-    version = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    version = ContentVersion(
+        id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1", version_number=1
+    )
     version_list.add_version(version=version)
     assert version_list.get_content_version(version_id=version.id) == version
     assert version_list.get_content_version(version_id="non-existing-one") is None
@@ -105,14 +129,18 @@ def test_content_version_list_get_content_version():
 
 def test_content_version_list_add_version():
     version_list = ContentVersionList(data_dir="/fake/dir")
-    version = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    version = ContentVersion(
+        id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1", version_number=1
+    )
     version_list.add_version(version=version)
     assert version_list.get_content_version(version_id=version.id) == version
 
 
 def test_content_version_list_add_version_does_not_add_duplicates():
     version_list = ContentVersionList(data_dir="/fake/dir")
-    version = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
+    version = ContentVersion(
+        id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1", version_number=1
+    )
     doc_link = ContentDocumentLink(content_document_id=version.document_id, linked_entity_id="LID1")
     version_list.add_version(version=version)
     version_list.add_version(version=version)
@@ -123,8 +151,12 @@ def test_content_version_list_add_version_does_not_add_duplicates():
 
 def test_content_version_list_get_content_versions_for_link():
     version_list = ContentVersionList(data_dir="/fake/dir")
-    version1 = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
-    version2 = ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2")
+    version1 = ContentVersion(
+        id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1", version_number=1
+    )
+    version2 = ContentVersion(
+        id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2", version_number=1
+    )
     version_list.add_version(version=version1)
     version_list.add_version(version=version2)
     doc_link = ContentDocumentLink(content_document_id=version1.document_id, linked_entity_id="LID1")
@@ -136,8 +168,12 @@ def test_content_version_list_get_content_versions_for_link():
 
 def test_content_version_list_len():
     version_list = ContentVersionList(data_dir="/fake/dir")
-    version1 = ContentVersion(id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1")
-    version2 = ContentVersion(id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2")
+    version1 = ContentVersion(
+        id="id1", document_id="did1", checksum="sum1", title="title1", extension="ext1", version_number=1
+    )
+    version2 = ContentVersion(
+        id="id2", document_id="did2", checksum="sum2", title="title2", extension="ext2", version_number=1
+    )
     version_list.add_version(version=version1)
     version_list.add_version(version=version2)
     assert 2 == len(version_list)
