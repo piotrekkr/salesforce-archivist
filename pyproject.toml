@@ -11,19 +11,17 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.10"
 simple-salesforce = "^1.12.5"
-python-dotenv = "^1.0.0"
 PyYAML = "^6.0.1"
 click = "^8.1.7"
 schema = "^0.7.5"
 python-dateutil = "^2.8.2"
 types-PyYAML = "^6.0.12.12"
-pytest = "^7.4.3"
-pytest-mock = "^3.12.0"
-ruff = "^0.1.15"
 
 [tool.poetry.group.dev.dependencies]
+pytest-mock = "^3.12.0"
 mypy = "^1.7.1"
-tomli = "^2.0.1"
+pytest = "^7.4.3"
+ruff = "^0.1.15"
 types-requests = "^2.31.0.20240106"
 poethepoet = "^0.24.4"
 
