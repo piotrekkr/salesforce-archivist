@@ -216,7 +216,7 @@ def test_download_content_document_link_list_csv_reading(
             (
                 "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber "
                 "FROM ContentVersion "
-                "WHERE ContentDocumentId IN ('DOC_1','DOC_2')"
+                "WHERE ContentDocumentId IN ('DOC_1','DOC_2') AND ContentSize > 1"
             ),
             123,
         ),
@@ -226,7 +226,7 @@ def test_download_content_document_link_list_csv_reading(
             (
                 "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber "
                 "FROM ContentVersion "
-                "WHERE ContentDocumentId IN ('DOC_7','DOC_1')"
+                "WHERE ContentDocumentId IN ('DOC_7','DOC_1') AND ContentSize > 1"
             ),
             50000,
         ),

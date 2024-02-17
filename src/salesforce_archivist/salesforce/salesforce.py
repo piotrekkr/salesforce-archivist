@@ -134,7 +134,7 @@ class Salesforce:
         tmp_dir = self._init_tmp_dir()
         query = (
             "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber "
-            "FROM ContentVersion WHERE ContentDocumentId IN ({id_list})"
+            "FROM ContentVersion WHERE ContentDocumentId IN ({id_list}) AND ContentSize > 1"
         ).format(id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids]))
         self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
         for path in glob.glob(os.path.join(tmp_dir, "*.csv")):
