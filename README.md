@@ -134,6 +134,7 @@ erDiagram
         string Checksum
         string Title
         string FileExtension
+        string VersionNumber
     }
     ContentDocument ||--|{ ContentVersion : ""
     ContentDocumentLink }o--|| ContentDocument : ""
@@ -208,3 +209,4 @@ You can remove this file or selected lines from inside this file. This will trig
 - Add some example terraform and/or ansible to use for deploy to VM in cloud
 - Add options to force re-download versions and document link lists
 - Add global config options to set date ranges if none was specified on object type level
+- Add download size to stats
