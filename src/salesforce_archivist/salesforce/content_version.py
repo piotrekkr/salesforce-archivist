@@ -41,7 +41,8 @@ class ContentVersion:
 
     @property
     def filename(self) -> str:
-        return "{id}_{version_number}_{title}.{extension}".format(
+        return "{doc_id}_{version_number}_{id}_{title}.{extension}".format(
+            doc_id=self.document_id,
             id=self.id,
             # TODO make it configurable
             title=re.sub(r'[/\\?%*:|"<>]', "-", self.title),

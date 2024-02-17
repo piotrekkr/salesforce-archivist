@@ -28,8 +28,8 @@ def test_content_version_properties():
     assert version.title == title
     assert version.extension == ext
     assert version.checksum == checksum
-    assert version.filename == "{id}_{version_number}_{title}.{extension}".format(
-        id=vid, title=re.sub(r'[/\\?%*:|"<>]', "-", title), extension=ext, version_number=version_number
+    assert version.filename == "{doc_id}_{version_number}_{id}_{title}.{extension}".format(
+        id=vid, doc_id=did, title=re.sub(r'[/\\?%*:|"<>]', "-", title), extension=ext, version_number=version_number
     )
 
 
