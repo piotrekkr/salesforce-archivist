@@ -119,7 +119,7 @@ class ContentVersionDownloadValidator:
         item_padded = "{{:{width}d}}".format(width=len(str(self._stats.total))).format(self._stats.processed)
         click.secho(
             "[{emoji} {checked}/{total} {percent:6.2f}%] {msg}".format(
-                emoji="✅" if not invalid else "❌",
+                emoji="✓" if not invalid else "✗",
                 checked=item_padded,
                 percent=percent,
                 total=self._stats.total,

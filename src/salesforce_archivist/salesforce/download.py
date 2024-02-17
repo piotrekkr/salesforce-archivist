@@ -213,7 +213,7 @@ class ContentVersionDownloader:
 
         click.secho(
             "[{emoji} {downloaded}/{total} {percent:6.2f}%] [☁️{usage:6.2f}%] {msg}".format(
-                emoji="💾" if not error else "❌",
+                emoji="✓" if not error else "✗",
                 downloaded=item_padded,
                 percent=percent,
                 total=self._stats.total,
