@@ -11,10 +11,6 @@ on:
         description: Release ref (tag, branch, SHA)
         required: true
 
-  push:
-    branches:
-      - ci-and-release
-
 permissions:
   contents: read
   packages: write
