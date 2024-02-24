@@ -11,13 +11,13 @@ I was recently tasked with cleaning old files and archiving those in GCS bucket.
 before, so I started to search for existing tools. I found a few but only
 [hardisgroupcom/sfdx-hardis](https://github.com/hardisgroupcom/sfdx-hardis) was free and could be used in CLI
 inside a VM. `sfdx-hardis` has `hardis:org:files:export` command that is responsible for file export. It is a good tool
-but has few shortcomings that can appear quite fast after using it with existing SF org:
-- **It is focused on object** - This approach is problematic when one object has thousands of files
-  attached to it and something breaks or some files were not downloaded properly. Re-run skips download if object
-  directory exist on disk. You need to remove whole directory to trigger download again.
+but has few shortcomings that can appear quite fast after using it with existing SF org. Here are some of those:
+- **It is focused on object** - This approach is problematic when one object has thousands of files attached to it
+  and something breaks or some files were not downloaded properly. Re-run skips download if object directory exist on
+  disk. You need to remove whole directory to trigger download again.
 - **Downloading big files sometimes breaks** - I encountered some issues when downloading big files (>1G) and was forced
   to manually download some files using `curl`.
-- **No download validation** - There seems to be no way to validate if all files were downloaded and if checksums match
+- **No download validation** - There seems to be no way to validate if all files were downloaded and if checksums match.
 - **It does not calculate API calls correctly** - Before actual download starts you are presented with statistics about
   how many calls will be issued. The problem is that those calculations do not take into account actual download calls.
   You can hit API limit pretty quickly and lock all other apps using same REST API.
@@ -31,8 +31,8 @@ but has few shortcomings that can appear quite fast after using it with existing
 - **Big files download** - using python `simple-salesforce` library can handle downloading big files pretty well.
 - **Validation command** - When download is complete you can run validation command to check disk files against
   checksums from Salesforce. No additional API calls made during validation process.
-- **Mindful of Salesforce API limits** - Will pause download when configured API usage is hit and resume automatically
-  when usage drops.
+- **Mindful of Salesforce API limits** - Will pause download when configured API usage limit is hit and resume
+  automatically when API usage drops.
 - **Parallel downloads and validation** - Can download and validate in parallel using threads.
 
 ## Tech stack
@@ -56,7 +56,7 @@ There are also some other smaller libraries used. You can check them inside `pyp
 > [!IMPORTANT]
 > By default, all commands in production image are run by user with `UID=1000` and `GID=1000`.
 > Be sure to set proper permissions to mounted volumes before running archivist, otherwise it may not have
-> permissions to configuration (/archivist/config.yaml) or data directory (`/archivist/data/`) inside container.
+> permissions to configuration (`/archivist/config.yaml`) or data directory (`/archivist/data/`) inside container.
 
 You can use pre-made docker production image like this:
 ```shell
@@ -68,8 +68,8 @@ docker run --interactive --tty \
 ```
 
 > [!TIP]
-> Depending on the amount of files and download size, commands can take long time. You should probably use
-> some terminal multiplexer like `tmux` or `screen` when running this tool on production.
+> Depending on the amount of files and download size, operations can take long time. You should probably use
+> some terminal multiplexer like `tmux` or `screen` when running this tool on production VM.
 
 ### Plain Python
 
@@ -102,7 +102,7 @@ docker run --interactive --tty \
 > all commands will be run as this user. If you have different `UID/GID`, you should adjust those values by
 > setting `ARCHIVIST_UID` and `ARCHIVIST_GID` in environment and then rebuilding image.
 
-You can build and run project using Docker Compose.
+You can build and run project using Docker Compose like this:
 1. Clone project
    ```shell
    git clone git@github.com:piotrekkr/salesforce-archivist.git
@@ -122,6 +122,8 @@ You can build and run project using Docker Compose.
    docker compose exec -it archivist archivist --help
    ```
 
+You can also just go into container shell `docker compose exec -it archivist bash` and just execute `archivist` command.
+
 ### Development container
 
 > [!IMPORTANT]
@@ -130,7 +132,6 @@ You can build and run project using Docker Compose.
 
 If your IDE can handle [development containers](https://containers.dev/) (like VSCode do), upon opening project you should
 be prompted to rebuild and reopen project within dev container. After this is done archivist will be installed inside.
-
 Next steps:
 1. Open terminal inside dev container
 2. Copy example configuration file and adjust to your needs
@@ -158,6 +159,7 @@ adjust to your own needs.
 ```shell
 cp config.example.yaml config.yaml
 ```
+
 > [!IMPORTANT]
 > Before you can use private key (server.key) in `config.yaml` you should encode it as `base64` string.
 
