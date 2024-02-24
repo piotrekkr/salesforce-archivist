@@ -257,7 +257,7 @@ You can remove this file or selected lines from inside this file. This will trig
 
 ## TODO
 
-- Add CI checks for tests code style etc.
+- Add CI checks for tests, coverage, code style etc.
 - Use pydantic instead of schema
 - Add cli options to force re-download versions and document link lists
 - Add global config options to set date ranges if none was specified on object type level in configuration
