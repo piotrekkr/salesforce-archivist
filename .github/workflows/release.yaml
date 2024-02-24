@@ -11,10 +11,6 @@ on:
         description: Release ref (tag, branch, SHA)
         required: true
 
-  push:
-    branches:
-      - ci-and-release
-
 permissions:
   contents: read
   packages: write
@@ -27,7 +23,6 @@ jobs:
       - name: Calculate params
         id: params
         run: |
-          exit 1
           if [[ "${{ github.event_name }}" = "release" ]]; then
             tag="${{ github.event.release.tag_name }}"
             tags="ghcr.io/${{ github.repository }}:${tag},ghcr.io/${{ github.repository }}:latest"
