@@ -74,7 +74,7 @@ cmd  = "pytest ."
 
 [tool.poe.tasks.lint-check]
 help = "Check if code is linted"
-cmd  = "ruff check --fix"
+cmd  = "ruff check"
 
 [tool.poe.tasks.lint]
 help = "Lint code"
