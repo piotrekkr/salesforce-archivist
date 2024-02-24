@@ -21,13 +21,12 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build and push
+    name: Build and release
     runs-on: ubuntu-22.04
     steps:
       - name: Calculate params
         id: params
         run: |
-          exit 1
           if [[ "${{ github.event_name }}" = "release" ]]; then
             tag="${{ github.event.release.tag_name }}"
             tags="ghcr.io/${{ github.repository }}:${tag},ghcr.io/${{ github.repository }}:latest"
