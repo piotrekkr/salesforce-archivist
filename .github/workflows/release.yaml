@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build and release
+    name: Build And Release
     runs-on: ubuntu-22.04
     steps:
       - name: Calculate params
