@@ -29,8 +29,10 @@ jobs:
             gh api "/user/packages/container/${name}/versions" \
               --jq '.[] | select(.metadata.container.tags==[]) | .id'
           )
-          echo "Found untagged images:"
-          echo "$to_delete"
+          if [[ -z $to_delete ]]; then
+            echo "No untagged images found"
+            exit 0
+          fi
 
           while read -r id; do
             echo "Deleting untagged image id: ${id}"
