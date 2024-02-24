@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   quality-assurance:
+    name: Check Code Quality
     timeout-minutes: 10
     runs-on: ubuntu-22.04
     env:
