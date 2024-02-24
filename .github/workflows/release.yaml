@@ -20,6 +20,23 @@ jobs:
     name: Build And Release
     runs-on: ubuntu-22.04
     steps:
+      - name: Cleanup untagged images
+        run: |
+          name=salesforce-archivist
+          to_delete=$(
+            gh api "/user/packages/container/${name}/versions" \
+              --jq '.[] | select(.metadata.container.tags==[]) | .id'
+          )
+          echo "Found untagged images:"
+          echo "$to_delete"
+
+          while read -r id; do
+            echo "Deleting untagged image id: ${id}"
+            gh api -X DELETE "/user/packages/container/${name}/versions/${id}";
+          done <<< "$to_delete"
+
+          exit 1
+
       - name: Calculate params
         id: params
         run: |
@@ -67,3 +84,11 @@ jobs:
           tags: ${{ steps.params.outputs.tags }}
           cache-from: type=gha,scope=archivist
           cache-to: type=gha,mode=max,scope=archivist
+
+      - name: Cleanup untagged images
+        run: |
+          name=salesforce-archivist
+          while read -r id; do
+            echo "Deleting untagged image id: ${id}"
+            gh api -X DELETE "/user/packages/container/${name}/versions/${id}";
+          done <<< "$(gh api "/user/packages/container/${name}/versions" --jq '.[] | select(.metadata.container.tags==[]) | .id')"
