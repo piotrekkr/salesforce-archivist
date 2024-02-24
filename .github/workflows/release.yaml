@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  release:
+    types:
+      - published
+
+  workflow_dispatch:
+    inputs:
+      release_ref:
+        description: Release ref (tag, branch, SHA)
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build And Release
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Calculate params
+        id: params
+        run: |
+          if [[ "${{ github.event_name }}" = "release" ]]; then
+            tag="${{ github.event.release.tag_name }}"
+            tags="ghcr.io/${{ github.repository }}:${tag},ghcr.io/${{ github.repository }}:latest"
+            ref="${{ github.event.release.tag_name }}"
+          else
+            tag="0.0.0-${{ inputs.release_ref }}"
+            tags="ghcr.io/${{ github.repository }}:${tag}"
+            ref="${{ inputs.release_ref }}"
+          fi
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.params.outputs.ref }}
+          persist-credentials: false
+
+      - name: Log in to the container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: prod
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.params.outputs.tags }}
+          cache-from: type=gha,scope=archivist
+          cache-to: type=gha,mode=max,scope=archivist

@@ -50,50 +50,7 @@ disallow_untyped_calls = true
 warn_return_any = true
 warn_unused_ignores = true
 
-[tool.isort]
-profile = "black"
-src_paths = ["src/salesforce_archivist", "test"]
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-line_length = 120
-
-[tool.black]
-preview = true
-line-length = 120
-target-version = ['py310']
-include = '\.pyi?$'
-
 [tool.ruff]
-exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-    "venv",
-]
 line-length = 120
 indent-width = 4
 target-version = "py310"
@@ -115,18 +72,26 @@ line-ending = "auto"
 help = "Run tests"
 cmd  = "pytest ."
 
-[tool.poe.tasks.ruff-check]
-help = "Run ruff"
+[tool.poe.tasks.lint-check]
+help = "Check if code is linted"
+cmd  = "ruff check"
+
+[tool.poe.tasks.lint]
+help = "Lint code"
 cmd  = "ruff check --fix"
 
-[tool.poe.tasks.ruff-format]
-help = "Run ruff"
+[tool.poe.tasks.format]
+help = "Format code"
 cmd  = "ruff format"
 
+[tool.poe.tasks.format-check]
+help = "Check code formating"
+cmd  = "ruff format --check"
+
 [tool.poe.tasks.mypy]
-help = "Run mypy"
+help = "Run static analysis"
 cmd = "mypy"
 
-[tool.poe.tasks.cs]
-help = "Run code style tools"
-sequence  = ["ruff-format", "ruff-check", "mypy"]
+[tool.poe.tasks.qt]
+help = "Run code quality tools"
+sequence  = ["format", "lint", "mypy"]
