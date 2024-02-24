@@ -49,7 +49,27 @@ Project is implemented in `Python 3.11` and is using `poetry` as package manager
 
 There are also some other smaller libraries used. You can check them inside `pyproject.toml`.
 
-## Installation
+## Installation & Run
+
+### Pre-made docker production image
+
+> [!IMPORTANT]
+> By default, all commands in production image are run by user with `UID=1000` and `GID=1000`.
+> Be sure to set proper permissions to mounted volumes before running archivist, otherwise it may not have
+> permissions to configuration (/archivist/config.yaml) or data directory (`/archivist/data/`) inside container.
+
+You can use pre-made docker production image like this:
+```shell
+docker run --interactive --tty \
+  --volume /path/to/data/directory:/archivist/data \
+  --volume /path/to/your.config.yaml:/archivist/config.yaml \
+  ghcr.io/piotrekkr/salesforce-archivist:latest \
+  --help
+```
+
+> [!TIP]
+> Depending on the amount of files and download size, commands can take long time. You should probably use
+> some terminal multiplexer like `tmux` or `screen` when running this tool on production.
 
 ### Plain Python
 
@@ -64,25 +84,73 @@ There are also some other smaller libraries used. You can check them inside `pyp
    ```shell
    poetry install
    ```
+5. Copy example configuration file and adjust to your needs
+   ```shell
+   cp config.example.yaml config.yaml
+   #... edit config.yaml
+   ```
+6. Go to poetry shell and run archivist
+   ```shell
+   poetry shell
+   archivist --help
+   ```
 
-### Docker
+### Docker Compose
 
-//TODO
+> [!IMPORTANT]
+> When building image, Docker Compose will create `archivist` user with `UID=1000` and `GID=1000`. By default,
+> all commands will be run as this user. If you have different `UID/GID`, you should adjust those values by
+> setting `ARCHIVIST_UID` and `ARCHIVIST_GID` in environment and then rebuilding image.
 
-### Devcontainer
+You can build and run project using Docker Compose.
+1. Clone project
+   ```shell
+   git clone git@github.com:piotrekkr/salesforce-archivist.git
+   cd salesforce-archivist
+   ```
+2. Build image and start container
+   ```shell
+   docker compose up -d --build
+   ```
+3. Copy example configuration file and adjust to your needs
+   ```shell
+   cp config.example.yaml config.yaml
+   #... edit config.yaml
+   ```
+4. Run project
+   ```shell
+   docker compose exec -it archivist archivist --help
+   ```
 
-// TODO
+### Development container
 
-## Running project
+> [!IMPORTANT]
+> Dev container is using same base Docker Compose configuration. This means that when building image same
+> UID and GID rules apply. Check "Docker Compose" section above for more details.
 
-### Authenticate in Salesforce
+If your IDE can handle [development containers](https://containers.dev/) (like VSCode do), upon opening project you should
+be prompted to rebuild and reopen project within dev container. After this is done archivist will be installed inside.
+
+Next steps:
+1. Open terminal inside dev container
+2. Copy example configuration file and adjust to your needs
+   ```shell
+   cp config.example.yaml config.yaml
+   #... edit config.yaml
+   ```
+3. Run
+   ```shell
+   archivist --help
+   ```
+
+## Authentication in Salesforce
 
 Currently, this project can work with JWT authorization flow. You can follow
 [this tutorial](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_auth_jwt_flow.htm)
 to configure private key, self-signed certificate and a connected app.
 Following first and second step should be enough to make it work.
 
-### Configuration
+## Configuration
 
 Example configuration file contains comments explaining purpose of each configuration option. You can copy it and
 adjust to your own needs.
@@ -90,29 +158,12 @@ adjust to your own needs.
 ```shell
 cp config.example.yaml config.yaml
 ```
-
-> ℹ️ Before you can use private key (server.key) in `config.yaml` you should encode it as `base64` string.
-
-### Running commands
-
-First activate `poetry` shell
-```shell
-poetry shell
-```
-
-When in poetry shell you should be able to use `archivist` command like
-
-```shell
-# download
-archivist download
-
-# validation
-archivist validate
-```
+> [!IMPORTANT]
+> Before you can use private key (server.key) in `config.yaml` you should encode it as `base64` string.
 
 ## Design
 
-Relation between Salesforce object (entities) and files looks like this:
+Relation between Salesforce objects (entities) and files looks like this:
 
 ```mermaid
 erDiagram
@@ -140,8 +191,8 @@ erDiagram
     ContentDocumentLink }o--|| ContentDocument : ""
     ContentDocumentLink }o--|| "Entity (User, Event,...)" : ""
 ```
-Files (`ContentDocument` objects) can be linked to multiple entities (SF objects like `User`, `Case`, and so on).
-File can have multiple versions (`ContentVersion` objects).
+Files (`ContentDocument` objects) can be linked (using `ContentDocumentLink` objects) to multiple entities
+(SF objects like `User`, `Case`, and so on). File can have multiple versions (`ContentVersion` objects).
 
 ### Download
 
@@ -150,8 +201,8 @@ Based on configuration, download process will work as follows:
 2. For each object type defined in configuration:
    1. Load existing content document link list (`{data_dir}/{obj_type}/document_links.csv`) or download from
       Salesforce with specified conditions.
-   2. Based on document link list, load content version list (`{data_dir}/{obj_type}/content_versions.csv`) or
-      download it from Salesforce.
+   2. If exists, load content version list (`{data_dir}/{obj_type}/content_versions.csv`) or
+      download it from Salesforce (based on document link list).
    3. Based on those two lists generate in memory mapping of files to download with objects they are linked to.
    4. For each file on list above:
       1. Combine file path (`{data_dir}/{obj_type}/files/{obj_id|custom_field}/{doc_id}_{version_num}_{id}_{title}.{ext}`)
@@ -169,14 +220,14 @@ Based on configuration, validation process will work as follows:
 2. For each object type defined in configuration:
    1. Load existing content document link list (`{data_dir}/{obj_type}/document_links.csv`) or download from
       Salesforce with specified conditions.
-   2. Based on document link list, load content version list (`{data_dir}/{obj_type}/content_versions.csv`) or
-      download it from Salesforce.
+   2. If exists, load content version list (`{data_dir}/{obj_type}/content_versions.csv`) or download it
+      from Salesforce (based on document link list).
    3. Based on those two lists generate in memory mapping of files to download with objects they are linked to.
    4. For each file on list above:
-      1. If file does not exist on disk, or was already validated and checksum does not match with Salesforce, then mark
-         file as invalid.
-      2. If file was not validated before, calculate checksum of disk file, update validated list, compare checksum and
-         if needed mark file as invalid.
+      1. If file does not exist on disk, or was already validated and checksum does not match with Salesforce,
+         then mark file as invalid.
+      2. If file was not validated before, calculate checksum of disk file, update validated list, compare
+         checksum and if needed mark file as invalid.
    5. Save validated files list on disk.
 3. When validation is complete, show statistics.
 
@@ -184,7 +235,7 @@ Based on configuration, validation process will work as follows:
 
 ### How to re-download content version list and document link list?
 
-You can remove CSV files from disk and nex download will download full lists again.
+You can remove CSV files from disk and next download will download full lists again from Salesforce.
 ```shell
 # for chosen type
 rm -rf {data_dir}/{object_type}/*.csv
@@ -193,7 +244,7 @@ rm -rf {data_dir}/{object_type}/*.csv
 rm -rf {data_dir}/*/*.csv
 ```
 
-### How to force revalidate all files again?
+### How to force re-validate all files again?
 
 Already calculated checksums for downloaded files are kept in `{data_dir}/validated_versions.csv`.
 You can remove this file or selected lines from inside this file. This will trigger full validation again.
@@ -204,9 +255,9 @@ You can remove this file or selected lines from inside this file. This will trig
 
 ## TODO
 
+- Add CI checks for tests code style etc.
 - Use pydantic instead of schema
-- Add docker, compose and devcontainer support
-- Add some example terraform and/or ansible to use for deploy to VM in cloud
-- Add options to force re-download versions and document link lists
-- Add global config options to set date ranges if none was specified on object type level
+- Add cli options to force re-download versions and document link lists
+- Add global config options to set date ranges if none was specified on object type level in configuration
 - Add download size to stats
+- Add some example terraform and/or ansible to use for deploy to VM in cloud

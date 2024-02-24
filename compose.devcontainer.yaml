@@ -1,0 +1,8 @@
+version: "3.9"
+
+services:
+  archivist:
+    image: archivist:devcontainer
+    volumes:
+      # done because otherwise git could not authenticate in vsocode devcontainer
+      - ~/.ssh:/home/archivist/.ssh

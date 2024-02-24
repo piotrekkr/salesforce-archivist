@@ -1,5 +1,7 @@
 data/*
 !data/.gitkeep
 config.yaml
-.mypy_cache
-.pytest_cache
+.*_cache
+.venv/
+.idea
+.vscode
