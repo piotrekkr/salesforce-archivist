@@ -28,7 +28,7 @@ jobs:
             tags="ghcr.io/${{ github.repository }}:${tag},ghcr.io/${{ github.repository }}:latest"
             ref="${{ github.event.release.tag_name }}"
           else
-            tag="0.0.0+${{ inputs.release_ref }}"
+            tag="0.0.0-${{ inputs.release_ref }}"
             tags="ghcr.io/${{ github.repository }}:${tag}"
             ref="${{ inputs.release_ref }}"
           fi
