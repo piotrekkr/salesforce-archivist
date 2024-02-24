@@ -26,7 +26,7 @@ RUN <<EOF
     useradd --create-home --gid $ARCHIVIST_GID --uid $ARCHIVIST_UID archivist --no-log-init
     # make archivist and owner of /opt/venv so it can write to it
     mkdir -p /opt/venv
-    chown -R archivist:archivist /opt/venv
+    chown -R archivist:archivist /opt/venv /archivist
 EOF
 
 ENV POETRY_VERSION=1.7.1 \
