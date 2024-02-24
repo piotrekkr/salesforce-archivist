@@ -20,27 +20,6 @@ jobs:
     name: Build And Release
     runs-on: ubuntu-22.04
     steps:
-      - name: Cleanup untagged images
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          name=salesforce-archivist
-          to_delete=$(
-            gh api "/user/packages/container/${name}/versions" \
-              --jq '.[] | select(.metadata.container.tags==[]) | .id'
-          )
-          if [[ -z $to_delete ]]; then
-            echo "No untagged images found"
-            exit 0
-          fi
-
-          while read -r id; do
-            echo "Deleting untagged image id: ${id}"
-            gh api -X DELETE "/user/packages/container/${name}/versions/${id}";
-          done <<< "$to_delete"
-
-          exit 1
-
       - name: Calculate params
         id: params
         run: |
@@ -90,9 +69,20 @@ jobs:
           cache-to: type=gha,mode=max,scope=archivist
 
       - name: Cleanup untagged images
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           name=salesforce-archivist
+          to_delete=$(
+            gh api "/user/packages/container/${name}/versions" \
+              --jq '.[] | select(.metadata.container.tags==[]) | .id'
+          )
+          if [[ -z $to_delete ]]; then
+            echo "No untagged images found"
+            exit 0
+          fi
+
           while read -r id; do
             echo "Deleting untagged image id: ${id}"
             gh api -X DELETE "/user/packages/container/${name}/versions/${id}";
-          done <<< "$(gh api "/user/packages/container/${name}/versions" --jq '.[] | select(.metadata.container.tags==[]) | .id')"
+          done <<< "$to_delete"
