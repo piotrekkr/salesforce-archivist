@@ -46,7 +46,7 @@ jobs:
           build-args: |
             ARCHIVIST_UID=${{ steps.user-id.outputs.gha_uid }}
             ARCHIVIST_GID=${{ steps.user-id.outputs.gha_gid }}
-          file: .docker/Dockerfile
+          file: .Dockerfile
           push: false
           tags: ${{ env.CI_IMAGE_TAG }}
           cache-from: type=gha,scope=archivist
