@@ -167,6 +167,8 @@ def test_archivist_config_props():
             """\
             data_dir: {data_dir}
             max_api_usage_percent: 40
+            modified_date_gt: 2011-01-01T00:00:00Z
+            modified_date_lt: 2012-01-01T00:00:00Z
             auth:
               instance_url: https://login.salesforce.com/
               username: test
@@ -178,7 +180,9 @@ def test_archivist_config_props():
               User:
                 modified_date_gt: 2017-01-01T00:00:00Z
                 modified_date_lt: 2023-08-01T00:00:00Z
-                dir_name_field: LinkedEntity.Username"""
+                dir_name_field: LinkedEntity.Username
+              Booking__c: {{}}
+            """
         ).format(data_dir=tmp_dir)
         path = "config.yml"
         with open(path, "wb") as config:
@@ -188,6 +192,8 @@ def test_archivist_config_props():
 
         assert config.data_dir == tmp_dir
         assert config.max_api_usage_percent == 40.0
+        assert config.modified_date_gt == datetime.datetime(year=2011, month=1, day=1, tzinfo=datetime.timezone.utc)
+        assert config.modified_date_lt == datetime.datetime(year=2012, month=1, day=1, tzinfo=datetime.timezone.utc)
         assert isinstance(config.auth, ArchivistAuth)
         assert config.auth.username == "test"
         assert config.auth.instance_url == "https://login.salesforce.com/"
@@ -202,6 +208,13 @@ def test_archivist_config_props():
         )
         assert archivist_object.modified_date_lt == datetime.datetime(
             year=2023, month=8, day=1, tzinfo=datetime.timezone.utc
+        )
+        archivist_object_with_defaults = config.objects[1]
+        assert archivist_object_with_defaults.modified_date_gt == datetime.datetime(
+            year=2011, month=1, day=1, tzinfo=datetime.timezone.utc
+        )
+        assert archivist_object_with_defaults.modified_date_lt == datetime.datetime(
+            year=2012, month=1, day=1, tzinfo=datetime.timezone.utc
         )
 
 
