@@ -150,7 +150,7 @@ objects:
 )
 def test_archivist_config_validation(yaml_data, expect_exception):
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "config.yml")
+        path = os.path.join(tmp_dir, "config.yaml")
         with open(path, "wb") as config:
             data = yaml_data.replace("{data_dir}", tmp_dir)
             config.write(data.encode("utf-8"))
@@ -184,7 +184,7 @@ def test_archivist_config_props():
               Booking__c: {{}}
             """
         ).format(data_dir=tmp_dir)
-        path = "config.yml"
+        path = os.path.join(tmp_dir, "config.yaml")
         with open(path, "wb") as config:
             config.write(yaml.encode("utf-8"))
 
