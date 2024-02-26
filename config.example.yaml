@@ -12,6 +12,17 @@ max_workers: 5
 # Default: None
 max_api_usage_percent: 50
 
+# Purpose: Set default modified_date_gt date to use when not specified on object level
+# Required: NO
+# Default: None
+# Notes: Must be valid datetime recognized by yaml parser
+modified_date_gt: 2011-01-01T00:00:00Z
+
+# Purpose: Set default modified_date_lt date to use when not specified on object level
+# Required: NO
+# Default: None
+# Notes: Must be valid datetime recognized by yaml parser
+modified_date_lt: 2011-01-01T00:00:00Z
 
 # Purpose: Salesforce authentication configuration
 # Required: YES
@@ -42,20 +53,20 @@ auth:
 # Notes: Key is an object name, values is configuration map.
 objects:
   User:
-    # Purpose: process only ContentDocument objects attached that were modified after datetime
+    # Purpose: Process only ContentDocument objects attached that were modified after datetime
     # Required: NO
     # Default: None
     # Notes: Must be valid datetime recognized by yaml parser
     modified_date_gt: 2017-01-01T00:00:00Z
 
-    # Purpose: process only ContentDocument objects attached that were modified before datetime
+    # Purpose: Process only ContentDocument objects attached that were modified before datetime
     # Required: NO
     # Default: None
     # Notes: Must be valid datetime recognized by yaml parser
     modified_date_lt: 2023-08-01T00:00:00Z
 
 
-    # Purpose: use value of this field as a directory name for downloaded files
+    # Purpose: Use value of this field as a directory name for downloaded files
     # Required: NO
     # Default: ContentDocumentLink.LinkedEntityId
     # Notes: `LinkedEntity` lookup fields can be used but not every field of every linked entity can be used.
