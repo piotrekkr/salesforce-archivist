@@ -90,6 +90,8 @@ class ArchivistConfig:
             "data_dir": And(str, len, os.path.isdir, error="data_dir must be set and be a directory"),
             "max_api_usage_percent": Or(int, float, Use(float), lambda v: 0.0 < v <= 100.0),
             Optional("max_workers"): Optional(int, lambda v: 0 < v),
+            Optional("modified_date_gt"): lambda d: isinstance(d, datetime.datetime),
+            Optional("modified_date_lt"): lambda d: isinstance(d, datetime.datetime),
             "auth": {
                 "instance_url": And(str, len),
                 "username": And(str, len),
@@ -98,7 +100,8 @@ class ArchivistConfig:
             },
             "objects": {
                 str: {
-                    Optional(Or("modified_date_gt", "modified_date_lt")): lambda d: isinstance(d, datetime.datetime),
+                    Optional("modified_date_gt"): lambda d: isinstance(d, datetime.datetime),
+                    Optional("modified_date_lt"): lambda d: isinstance(d, datetime.datetime),
                     Optional("dir_name_field"): And(str, len),
                 }
             },
@@ -111,16 +114,18 @@ class ArchivistConfig:
         self._auth: ArchivistAuth = ArchivistAuth(**config["auth"])
         self._data_dir: str = config["data_dir"]
         self._max_api_usage_percent: float = config["max_api_usage_percent"]
+        self.modified_date_gt: datetime.datetime | None = config.get("modified_date_gt")
+        self.modified_date_lt: datetime.datetime | None = config.get("modified_date_lt")
         self._max_workers: int = config.get("max_workers")
         self._objects = []
-        for obj_type, config in config["objects"].items():
+        for obj_type, obj_config in config["objects"].items():
             self._objects.append(
                 ArchivistObject(
                     data_dir=self._data_dir,
                     obj_type=obj_type,
-                    modified_date_lt=config.get("modified_date_lt"),
-                    modified_date_gt=config.get("modified_date_gt"),
-                    dir_name_field=config.get("dir_name_field"),
+                    modified_date_lt=obj_config.get("modified_date_lt", self.modified_date_lt),
+                    modified_date_gt=obj_config.get("modified_date_gt", self.modified_date_gt),
+                    dir_name_field=obj_config.get("dir_name_field"),
                 )
             )
 
