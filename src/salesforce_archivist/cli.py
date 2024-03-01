@@ -1,8 +1,19 @@
+import signal
+from types import FrameType
+
 import click
 from click import Context
 
 from salesforce_archivist.archivist import Archivist, ArchivistConfig
 from simple_salesforce import Salesforce as SalesforceClient
+
+
+def signal_handler(signum: int, frame: FrameType | None) -> None:
+    print("Received signal {}. Attempting graceful shutdown. Please wait...".format(signum))
+    raise KeyboardInterrupt
+
+
+signal.signal(signal.SIGINT, signal_handler)
 
 
 @click.group()

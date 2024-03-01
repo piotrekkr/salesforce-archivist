@@ -158,6 +158,7 @@ class ContentVersionDownloader:
         downloaded_version_list: DownloadedContentVersionList,
         max_api_usage_percent: float | None = None,
         wait_sec: int = 300,
+        max_workers: int | None = None,
     ):
         self._client = sf_client
         self._downloaded_versions_list = downloaded_version_list
@@ -165,6 +166,8 @@ class ContentVersionDownloader:
         self._wait_sec = wait_sec
         self._stats = DownloadStats()
         self._lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._max_workers = max_workers
 
     def download_content_version_from_sf(self, version: ContentVersion, download_path: str) -> None:
         downloaded_version = self._downloaded_versions_list.get_version(version)
@@ -230,8 +233,11 @@ class ContentVersionDownloader:
         )
         error = False
         try:
-            self.download_content_version_from_sf(version=version, download_path=download_path)
             self._wait_if_api_usage_limit()
+            self.download_content_version_from_sf(version=version, download_path=download_path)
+        except StopDownloadException:
+            msg = "[ERROR] Stop signal received. Graceful shutdown."
+            error = True
         except Exception as e:
             msg = "[ERROR] Failed to download content version {id}: {error}".format(id=version.id, error=e)
             error = True
@@ -240,11 +246,16 @@ class ContentVersionDownloader:
                 self._stats.add_processed(error=error)
                 self._print_download_msg(msg, error=error)
 
-    def download(self, download_list: DownloadContentVersionList, max_workers: int | None = None) -> DownloadStats:
+    def download(self, download_list: DownloadContentVersionList) -> DownloadStats:
         self._stats.initialize(total=len(download_list))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for version, download_path in download_list:
-                executor.submit(self.download_or_wait, version=version, download_path=download_path)
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                for version, download_path in download_list:
+                    executor.submit(self.download_or_wait, version=version, download_path=download_path)
+        except KeyboardInterrupt as e:
+            self._stop_event.set()
+            executor.shutdown(wait=True, cancel_futures=True)
+            raise e
         return self._stats
 
     def _wait_if_api_usage_limit(self) -> None:
@@ -252,5 +263,14 @@ class ContentVersionDownloader:
             usage = self._client.get_api_usage()
             while usage.percent >= self._max_api_usage_percent:
                 self._print_download_msg(msg="[NOTICE] Waiting for API limit to drop.")
-                sleep(self._wait_sec)
+                for counter in range(self._wait_sec):
+                    # check every second if stop signal was received, and if so,
+                    # raise exception to stop current download
+                    if self._stop_event.is_set():
+                        raise StopDownloadException
+                    sleep(1)
                 usage = self._client.get_api_usage(refresh=True)
+
+
+class StopDownloadException(Exception):
+    pass

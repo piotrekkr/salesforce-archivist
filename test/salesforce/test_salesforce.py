@@ -454,8 +454,8 @@ def test_download_files_will_call_download_and_save():
             )
         download_mock.assert_has_calls(
             [
-                call(download_list=download_content_version_list, max_workers=5),
-                call(download_list=download_content_version_list, max_workers=5),
+                call(download_list=download_content_version_list),
+                call(download_list=download_content_version_list),
             ]
         )
         assert downloaded_content_version_list.save.call_count == 2
@@ -483,8 +483,8 @@ def test_validate_download_will_call_validate_and_save():
             )
         validate_mock.assert_has_calls(
             [
-                call(download_list=download_content_version_list, max_workers=5),
-                call(download_list=download_content_version_list, max_workers=5),
+                call(download_list=download_content_version_list),
+                call(download_list=download_content_version_list),
             ]
         )
         assert validated_content_version_list.save.call_count == 2

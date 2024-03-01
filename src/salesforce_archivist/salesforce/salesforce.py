@@ -163,8 +163,9 @@ class Salesforce:
                 sf_client=self._client,
                 downloaded_version_list=downloaded_content_version_list,
                 max_api_usage_percent=self._max_api_usage_percent,
+                max_workers=max_workers,
             )
-            return downloader.download(download_list=download_content_version_list, max_workers=max_workers)
+            return downloader.download(download_list=download_content_version_list)
         finally:
             downloaded_content_version_list.save()
 
@@ -177,7 +178,8 @@ class Salesforce:
         try:
             validator = ContentVersionDownloadValidator(
                 validated_content_version_list=validated_content_version_list,
+                max_workers=max_workers,
             )
-            return validator.validate(download_list=download_content_version_list, max_workers=max_workers)
+            return validator.validate(download_list=download_content_version_list)
         finally:
             validated_content_version_list.save()

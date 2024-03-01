@@ -169,6 +169,51 @@ def test_content_version_download_validator_validate_will_validate_in_parallel(s
     assert submit_mock.call_count == 2
 
 
+@patch("concurrent.futures.ThreadPoolExecutor")
+def test_content_version_download_validator_validate_will_use_defined_workers(thread_pool_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    download_content_version_list = DownloadContentVersionList(
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+    )
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    max_workers = 3
+    validator = ContentVersionDownloadValidator(
+        validated_content_version_list=validated_version_list, max_workers=max_workers
+    )
+    validator.validate(download_list=download_content_version_list)
+    assert thread_pool_mock.call_args == call(max_workers=max_workers)
+
+
+@patch.object(concurrent.futures.ThreadPoolExecutor, "submit", side_effect=KeyboardInterrupt)
+@patch.object(concurrent.futures.ThreadPoolExecutor, "shutdown", return_value=None)
+def test_content_version_download_validator_validate_will_gracefully_shutdown(shutdown_mock, submit_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
+    link_list.add_link(doc_link=link)
+    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list.add_version(
+        version=ContentVersion(
+            id="VID1",
+            document_id=link.content_document_id,
+            checksum="c1",
+            extension="ext1",
+            title="version1",
+            version_number=1,
+        )
+    )
+    download_content_version_list = DownloadContentVersionList(
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+    )
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
+    with pytest.raises(KeyboardInterrupt):
+        validator.validate(download_list=download_content_version_list)
+    shutdown_mock.assert_has_calls([call(wait=True), call(wait=True, cancel_futures=True)])
+
+
 def test_content_version_download_validator_validate_version_will_find_missing_file():
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version = ContentVersion(

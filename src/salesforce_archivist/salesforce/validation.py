@@ -106,13 +106,11 @@ class ValidationStats:
 
 
 class ContentVersionDownloadValidator:
-    def __init__(
-        self,
-        validated_content_version_list: ValidatedContentVersionList,
-    ):
+    def __init__(self, validated_content_version_list: ValidatedContentVersionList, max_workers: int | None = None):
         self._validated_list = validated_content_version_list
         self._stats = ValidationStats()
         self._lock = threading.Lock()
+        self._max_workers = max_workers
 
     def _print_validated_msg(self, msg: str, invalid: bool = False) -> None:
         percent = self._stats.processed / self._stats.total * 100 if self._stats.total > 0 else 0.0
@@ -166,9 +164,14 @@ class ContentVersionDownloadValidator:
 
         return not invalid
 
-    def validate(self, download_list: DownloadContentVersionList, max_workers: int | None = None) -> ValidationStats:
+    def validate(self, download_list: DownloadContentVersionList) -> ValidationStats:
         self._stats.initialize(total=len(download_list))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for version, download_path in download_list:
-                executor.submit(self.validate_version, version=version, download_path=download_path)
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
+                for version, download_path in download_list:
+                    executor.submit(self.validate_version, version=version, download_path=download_path)
+        except KeyboardInterrupt as e:
+            executor.shutdown(wait=True, cancel_futures=True)
+            raise e
+
         return self._stats
