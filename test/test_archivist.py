@@ -248,6 +248,28 @@ def test_archivist_download_will_load_lists_and_call_download_method(
     assert download_mock.call_count == 2
 
 
+@patch.object(Salesforce, "load_content_document_link_list")
+@patch.object(Salesforce, "load_content_version_list")
+@patch.object(Salesforce, "download_files")
+def test_archivist_download_will_return_correct_bool_value(
+    download_mock, load_version_list_mock, load_doc_link_list_mock
+):
+    stats_error = DownloadStats()
+    stats_error.initialize(total=1)
+    stats_error.add_processed(error=True)
+    stats_ok = DownloadStats()
+    for stats, expected_return in [(stats_error, False), (stats_ok, True)]:
+        download_mock.return_value = stats
+        archivist = Archivist(
+            data_dir="/fake/dir",
+            objects=[
+                ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
+            ],
+            sf_client=MagicMock(),
+        )
+        assert archivist.download() == expected_return
+
+
 @patch.object(ValidatedContentVersionList, "data_file_exist", side_effect=[False, True])
 @patch.object(ValidatedContentVersionList, "load_data_from_file")
 def test_archivist_validate_will_load_validated_list_if_possible(load_mock, exist_mock):

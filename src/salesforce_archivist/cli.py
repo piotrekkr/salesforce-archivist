@@ -24,8 +24,9 @@ def cli(ctx: Context) -> None:
 
 
 @cli.command()
+@click.option("--validate", is_flag=True, default=False, help="Trigger validation after download.")
 @click.pass_context
-def download(ctx: Context) -> None:
+def download(ctx: Context, validate: bool) -> None:
     config: ArchivistConfig = ctx.obj["config"]
     sf_client = SalesforceClient(
         instance_url=config.auth.instance_url,
@@ -40,7 +41,8 @@ def download(ctx: Context) -> None:
         max_api_usage_percent=config.max_api_usage_percent,
         max_workers=config.max_workers,
     )
-    archivist.download()
+    if not archivist.download() or validate and not archivist.validate():
+        ctx.exit(code=1)
 
 
 @cli.command()
@@ -60,7 +62,8 @@ def validate(ctx: Context) -> None:
         max_api_usage_percent=config.max_api_usage_percent,
         max_workers=config.max_workers,
     )
-    archivist.validate()
+    if not archivist.validate():
+        ctx.exit(code=1)
 
 
 if __name__ == "__main__":
