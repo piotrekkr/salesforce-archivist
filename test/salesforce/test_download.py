@@ -196,6 +196,56 @@ def test_content_version_downloader_download_will_download_in_parallel(submit_mo
     assert submit_mock.call_count == 2
 
 
+@patch("concurrent.futures.ThreadPoolExecutor")
+def test_content_version_downloader_download_will_use_defined_workers(thread_pool_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    download_content_version_list = DownloadContentVersionList(
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+    )
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    sf_client = Mock()
+    max_workers = 3
+    downloader = ContentVersionDownloader(
+        sf_client=sf_client, downloaded_version_list=downloaded_version_list, max_workers=max_workers
+    )
+    downloader.download(download_list=download_content_version_list)
+    assert thread_pool_mock.call_args == call(max_workers=max_workers)
+
+
+@patch.object(concurrent.futures.ThreadPoolExecutor, "submit", side_effect=KeyboardInterrupt)
+@patch.object(concurrent.futures.ThreadPoolExecutor, "shutdown", return_value=None)
+def test_content_version_downloader_download_will_gracefully_shutdown(shutdown_mock, submit_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
+    link_list.add_link(doc_link=link)
+    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list.add_version(
+        version=ContentVersion(
+            id="VID1",
+            document_id=link.content_document_id,
+            checksum="c1",
+            extension="ext1",
+            title="version1",
+            version_number=1,
+        )
+    )
+    download_content_version_list = DownloadContentVersionList(
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+    )
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    sf_client = Mock()
+    downloader = ContentVersionDownloader(
+        sf_client=sf_client,
+        downloaded_version_list=downloaded_version_list,
+    )
+    with pytest.raises(KeyboardInterrupt):
+        downloader.download(download_list=download_content_version_list)
+    shutdown_mock.assert_has_calls([call(wait=True), call(wait=True, cancel_futures=True)])
+
+
 @patch("os.path.exists")
 def test_content_version_downloader_download_content_version_from_sf_will_add_already_downloaded_version_to_list(
     exist_mock,
@@ -280,7 +330,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_downlo
             assert file.read() == b"test"
 
 
-@patch("salesforce_archivist.salesforce.download.sleep", spec=True, return_value=None)
+@patch("salesforce_archivist.salesforce.download.sleep", return_value=None)
 def test_content_version_downloader_download_or_wait(sleep_mock):
     sf_client = MagicMock()
     api_usage = ApiUsage(Usage(used=50, total=100))
@@ -306,7 +356,7 @@ def test_content_version_downloader_download_or_wait(sleep_mock):
             ContentVersion(id="ID", document_id="DOC", checksum="c", extension="e", title="T", version_number=1),
             download_path="/fake/download/path",
         )
-        sleep_mock.assert_called_once_with(wait)
+        sleep_mock.assert_has_calls([call(1) for _ in range(wait)])
 
 
 def test_download_stats_initialize():
