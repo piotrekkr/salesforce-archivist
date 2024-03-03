@@ -214,7 +214,7 @@ def test_download_content_document_link_list_csv_reading(
             ["DOC_1", "DOC_2"],
             123,
             (
-                "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber "
+                "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber, ContentSize "
                 "FROM ContentVersion "
                 "WHERE ContentDocumentId IN ('DOC_1','DOC_2') AND ContentSize > 1"
             ),
@@ -224,7 +224,7 @@ def test_download_content_document_link_list_csv_reading(
             ["DOC_7", "DOC_1"],
             None,
             (
-                "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber "
+                "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber, ContentSize "
                 "FROM ContentVersion "
                 "WHERE ContentDocumentId IN ('DOC_7','DOC_1') AND ContentSize > 1"
             ),
@@ -265,27 +265,27 @@ def test_download_content_version_list_queries(
         [],
         # no results from query (file with only header)
         [
-            [["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber"]],
+            [["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber", "ContentSize"]],
         ],
         # one file with results
         [
             [
-                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber"],
-                ["Id_1", "ContentDocumentId_1", "Checksum_1", "Title_1", "ext1", "1"],
-                ["Id_2", "ContentDocumentId_2", "Checksum_2", "Title_2", "ext2", "1"],
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber", "ContentSize"],
+                ["Id_1", "ContentDocumentId_1", "Checksum_1", "Title_1", "ext1", "1", "10"],
+                ["Id_2", "ContentDocumentId_2", "Checksum_2", "Title_2", "ext2", "1", "10"],
             ],
         ],
         # multiple files with results
         [
             [
-                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber"],
-                ["Id_1", "ContentDocumentId_1", "Checksum_1", "Title_1", "ext1", "1"],
-                ["Id_2", "ContentDocumentId_2", "Checksum_2", "Title_2", "ext2", "1"],
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber", "ContentSize"],
+                ["Id_1", "ContentDocumentId_1", "Checksum_1", "Title_1", "ext1", "1", "10"],
+                ["Id_2", "ContentDocumentId_2", "Checksum_2", "Title_2", "ext2", "1", "10"],
             ],
             [
-                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber"],
-                ["Id_3", "ContentDocumentId_3", "Checksum_3", "Title_3", "ext3", "1"],
-                ["Id_4", "ContentDocumentId_4", "Checksum_4", "Title_4", "ext4", "2"],
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber", "ContentSize"],
+                ["Id_3", "ContentDocumentId_3", "Checksum_3", "Title_3", "ext3", "1", "10"],
+                ["Id_4", "ContentDocumentId_4", "Checksum_4", "Title_4", "ext4", "2", "10"],
             ],
         ],
     ],
@@ -312,6 +312,7 @@ def test_download_content_version_list_csv_reading(
                     title=row[3],
                     extension=row[4],
                     version_number=int(row[5]),
+                    content_size=int(row[6]),
                 )
                 add_version_calls.append(call(version))
 

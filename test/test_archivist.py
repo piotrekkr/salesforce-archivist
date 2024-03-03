@@ -256,7 +256,7 @@ def test_archivist_download_will_return_correct_bool_value(
 ):
     stats_error = DownloadStats()
     stats_error.initialize(total=1)
-    stats_error.add_processed(error=True)
+    stats_error.add_processed(size=1, error=True)
     stats_ok = DownloadStats()
     for stats, expected_return in [(stats_error, False), (stats_ok, True)]:
         download_mock.return_value = stats

@@ -97,6 +97,7 @@ def test_downloaded_content_version_list_save():
                 checksum="checksum",
                 extension="ext",
                 version_number=1,
+                content_size=10,
             )
             assert version == loaded_list.get_version(content_version=cv)
 
@@ -112,9 +113,16 @@ def test_downloaded_content_version_list_add_get_version():
         checksum="checksum",
         extension="ext",
         version_number=1,
+        content_size=10,
     )
     cv2 = ContentVersion(
-        id="X", document_id="Y", title="title", checksum="checksum2", extension="ext2", version_number=1
+        id="X",
+        document_id="Y",
+        title="title",
+        checksum="checksum2",
+        extension="ext2",
+        version_number=1,
+        content_size=10,
     )
     assert version_list.get_version(content_version=cv) == version
     assert version_list.get_version(content_version=cv2) is None
@@ -125,10 +133,22 @@ def test_downloaded_content_version_list_is_downloaded():
     version = DownloadedContentVersion(id="id1", document_id="did1", path="path/file.txt")
     version_list.add_version(version=version)
     cv1 = ContentVersion(
-        id=version.id, document_id=version.document_id, title="t", checksum="c", extension="e", version_number=1
+        id=version.id,
+        document_id=version.document_id,
+        title="t",
+        checksum="c",
+        extension="e",
+        version_number=1,
+        content_size=10,
     )
     cv2 = ContentVersion(
-        id="ABC", document_id=version.document_id, title="t", checksum="c", extension="e", version_number=2
+        id="ABC",
+        document_id=version.document_id,
+        title="t",
+        checksum="c",
+        extension="e",
+        version_number=2,
+        content_size=10,
     )
     assert version_list.is_downloaded(cv1)
     assert not version_list.is_downloaded(cv2)
@@ -141,7 +161,13 @@ def test_download_content_version_list():
     link_list.add_link(doc_link=link)
     version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
     version = ContentVersion(
-        id="VID", document_id=link.content_document_id, checksum="c", extension="ext", title="version", version_number=1
+        id="VID",
+        document_id=link.content_document_id,
+        checksum="c",
+        extension="ext",
+        title="version",
+        version_number=1,
+        content_size=10,
     )
     version_list.add_version(version=version)
     download = DownloadContentVersionList(
@@ -171,6 +197,7 @@ def test_content_version_downloader_download_will_download_in_parallel(submit_mo
             extension="ext1",
             title="version1",
             version_number=1,
+            content_size=10,
         )
     )
     version_list.add_version(
@@ -181,6 +208,7 @@ def test_content_version_downloader_download_will_download_in_parallel(submit_mo
             extension="ext2",
             title="version2",
             version_number=2,
+            content_size=10,
         )
     )
     download_content_version_list = DownloadContentVersionList(
@@ -230,6 +258,7 @@ def test_content_version_downloader_download_will_gracefully_shutdown(shutdown_m
             extension="ext1",
             title="version1",
             version_number=1,
+            content_size=10,
         )
     )
     download_content_version_list = DownloadContentVersionList(
@@ -261,6 +290,7 @@ def test_content_version_downloader_download_will_return_download_stats(download
             extension="ext1",
             title="version1",
             version_number=1,
+            content_size=10,
         )
     )
     download_content_version_list = DownloadContentVersionList(
@@ -287,7 +317,13 @@ def test_content_version_downloader_download_content_version_from_sf_will_add_al
     exist_mock.return_value = True
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version = ContentVersion(
-        id="VID", document_id="DID", checksum="c1", extension="ext1", title="version1", version_number=1
+        id="VID",
+        document_id="DID",
+        checksum="c1",
+        extension="ext1",
+        title="version1",
+        version_number=1,
+        content_size=10,
     )
     downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
     sf_client = Mock()
@@ -309,10 +345,10 @@ def test_content_version_downloader_download_content_version_from_sf_will_copy_e
         to_download_path = os.path.join(archivist_obj.data_dir, "files", "file2.txt")
         download_list_mock = MagicMock()
         version1 = ContentVersion(
-            id="CID", document_id="DOC1", checksum="c", extension="e", title="title", version_number=1
+            id="CID", document_id="DOC1", checksum="c", extension="e", title="title", version_number=1, content_size=10
         )
         version2 = ContentVersion(
-            id="CID", document_id="DOC2", checksum="c", extension="e", title="title", version_number=1
+            id="CID", document_id="DOC2", checksum="c", extension="e", title="title", version_number=1, content_size=10
         )
         download_list_mock.__iter__.return_value = [
             (version1, already_downloaded_path),
@@ -345,7 +381,13 @@ def test_content_version_downloader_download_content_version_from_sf_will_downlo
     with tempfile.TemporaryDirectory() as tmp_dir:
         archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         version = ContentVersion(
-            id="VID1", document_id="DOC1", checksum="c1", extension="ext1", title="version1", version_number=1
+            id="VID1",
+            document_id="DOC1",
+            checksum="c1",
+            extension="ext1",
+            title="version1",
+            version_number=1,
+            content_size=10,
         )
         downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
 
@@ -387,7 +429,9 @@ def test_content_version_downloader_download_or_wait(sleep_mock):
             wait_sec=wait,
         )
         downloader.download_or_wait(
-            ContentVersion(id="ID", document_id="DOC", checksum="c", extension="e", title="T", version_number=1),
+            ContentVersion(
+                id="ID", document_id="DOC", checksum="c", extension="e", title="T", version_number=1, content_size=10
+            ),
             download_path="/fake/download/path",
         )
         sleep_mock.assert_has_calls([call(1) for _ in range(wait)])
@@ -396,7 +440,7 @@ def test_content_version_downloader_download_or_wait(sleep_mock):
 def test_download_stats_initialize():
     stats = DownloadStats()
     stats.initialize(total=11)
-    stats.add_processed(error=True)
+    stats.add_processed(size=10, error=True)
     stats.initialize(total=5)
     assert stats.total == 5
     assert stats.processed == 0
@@ -406,12 +450,13 @@ def test_download_stats_initialize():
 def test_download_stats_add_processed():
     stats = DownloadStats()
     stats.initialize(total=3)
-    stats.add_processed(error=True)
-    stats.add_processed()
+    stats.add_processed(size=10, error=True)
+    stats.add_processed(size=11)
     assert stats.total == 3
     assert stats.processed == 2
     assert stats.errors == 1
-    stats.add_processed()
-    stats.add_processed()
+    assert stats.size == 21
+    stats.add_processed(size=5)
+    stats.add_processed(size=5)
     assert stats.total == 4
     assert stats.processed == 4

@@ -3,6 +3,7 @@ import os.path
 from typing import Any
 
 import click
+import humanize
 import yaml
 from schema import And, Optional, Or, Schema, Use
 from simple_salesforce import Salesforce as SalesforceClient
@@ -174,6 +175,7 @@ class Archivist:
             "total": 0,
             "processed": 0,
             "errors": 0,
+            "size": 0,
         }
         for archivist_obj in self._objects:
             obj_type = archivist_obj.obj_type
@@ -202,12 +204,13 @@ class Archivist:
             global_stats["total"] += stats.total
             global_stats["processed"] += stats.processed
             global_stats["errors"] += stats.errors
+            global_stats["size"] += stats.size
 
         status = "SUCCESS" if global_stats["errors"] == 0 else "FAILED"
         color = "green" if global_stats["errors"] == 0 else "red"
         click.secho(
-            "[{status}] Download finished. Processed {processed}/{total}, {errors} errors.".format(
-                status=status, **global_stats
+            "[{status}] Download finished. Processed {processed}/{total} ({processed_size}), {errors} errors.".format(
+                status=status, processed_size=humanize.naturalsize(global_stats["size"], binary=True), **global_stats
             ),
             fg=color,
         )
