@@ -246,6 +246,40 @@ def test_content_version_downloader_download_will_gracefully_shutdown(shutdown_m
     shutdown_mock.assert_has_calls([call(wait=True), call(wait=True, cancel_futures=True)])
 
 
+@patch.object(ContentVersionDownloader, "download_content_version_from_sf", side_effect=RuntimeError)
+def test_content_version_downloader_download_will_return_download_stats(download_mock):
+    archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
+    link_list.add_link(doc_link=link)
+    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list.add_version(
+        version=ContentVersion(
+            id="VID1",
+            document_id=link.content_document_id,
+            checksum="c1",
+            extension="ext1",
+            title="version1",
+            version_number=1,
+        )
+    )
+    download_content_version_list = DownloadContentVersionList(
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+    )
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    sf_client = Mock()
+
+    downloader = ContentVersionDownloader(
+        sf_client=sf_client,
+        downloaded_version_list=downloaded_version_list,
+    )
+    result = downloader.download(download_list=download_content_version_list)
+    assert isinstance(result, DownloadStats)
+    assert result.total == 1
+    assert result.processed == 1
+    assert result.errors == 1
+
+
 @patch("os.path.exists")
 def test_content_version_downloader_download_content_version_from_sf_will_add_already_downloaded_version_to_list(
     exist_mock,

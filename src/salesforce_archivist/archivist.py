@@ -165,7 +165,7 @@ class Archivist:
         self._sf_client = sf_client
         self._max_workers = max_workers
 
-    def download(self) -> None:
+    def download(self) -> bool:
         downloaded_content_versions_list = DownloadedContentVersionList(self._data_dir)
         if downloaded_content_versions_list.data_file_exist():
             downloaded_content_versions_list.load_data_from_file()
@@ -211,8 +211,9 @@ class Archivist:
             ),
             fg=color,
         )
+        return global_stats["errors"] == 0
 
-    def validate(self) -> None:
+    def validate(self) -> bool:
         validated_versions_list = ValidatedContentVersionList(self._data_dir)
         if validated_versions_list.data_file_exist():
             validated_versions_list.load_data_from_file()
@@ -252,6 +253,7 @@ class Archivist:
             ),
             fg=color,
         )
+        return global_stats["invalid"] == 0
 
     @staticmethod
     def _print_msg(msg: str, obj_type: str, fg: str | None = None) -> None:
