@@ -126,15 +126,18 @@ class DownloadStats:
         self._total: int = 0
         self._processed: int = 0
         self._errors: int = 0
+        self._size: int = 0
 
     def initialize(self, total: int = 0) -> None:
         self._total = total
         self._processed = 0
         self._errors = 0
+        self._size = 0
 
-    def add_processed(self, error: bool = False) -> None:
+    def add_processed(self, size: int, error: bool = False) -> None:
         self._processed += 1
         self._total = max(self._total, self._processed)
+        self._size += size
         if error:
             self._errors += 1
 
@@ -149,6 +152,10 @@ class DownloadStats:
     @property
     def errors(self) -> int:
         return self._errors
+
+    @property
+    def size(self) -> int:
+        return self._size
 
 
 class ContentVersionDownloader:
@@ -227,7 +234,7 @@ class ContentVersionDownloader:
         )
 
     def download_or_wait(self, version: ContentVersion, download_path: str) -> None:
-        msg = "[OK] Downloaded content version {id} into {path}".format(
+        msg = "[OK] Downloaded version {id} into {path}".format(
             id=version.id,
             path=download_path,
         )
@@ -239,11 +246,11 @@ class ContentVersionDownloader:
             msg = "[ERROR] Stop signal received. Graceful shutdown."
             error = True
         except Exception as e:
-            msg = "[ERROR] Failed to download content version {id}: {error}".format(id=version.id, error=e)
+            msg = "[ERROR] Failed to download version {id}: {error}".format(id=version.id, error=e)
             error = True
         finally:
             with self._lock:
-                self._stats.add_processed(error=error)
+                self._stats.add_processed(size=version.content_size, error=error)
                 self._print_download_msg(msg, error=error)
 
     def download(self, download_list: DownloadContentVersionList) -> DownloadStats:

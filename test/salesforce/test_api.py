@@ -27,7 +27,7 @@ def test_bulk2():
 
 def test_download_content_version():
     content_version = ContentVersion(
-        id="VID", document_id="DID", extension="pdf", title="Title", checksum="MD5", version_number=1
+        id="VID", document_id="DID", extension="pdf", title="Title", checksum="MD5", version_number=1, content_size=10
     )
     sf_base_url = "https://example.com"
     mock_sf = Mock()

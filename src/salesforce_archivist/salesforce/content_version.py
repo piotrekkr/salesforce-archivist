@@ -7,13 +7,23 @@ from salesforce_archivist.salesforce.content_document_link import ContentDocumen
 
 
 class ContentVersion:
-    def __init__(self, id: str, document_id: str, title: str, extension: str, checksum: str, version_number: int):
+    def __init__(
+        self,
+        id: str,
+        document_id: str,
+        title: str,
+        extension: str,
+        checksum: str,
+        version_number: int,
+        content_size: int,
+    ):
         self._id = id
         self._document_id = document_id
         self._title = title
         self._extension = extension
         self._checksum = checksum
         self._version_number = version_number
+        self._content_size = content_size
 
     @property
     def id(self) -> str:
@@ -40,6 +50,10 @@ class ContentVersion:
         return self._version_number
 
     @property
+    def content_size(self) -> int:
+        return self._content_size
+
+    @property
     def filename(self) -> str:
         return "{doc_id}_{version_number}_{id}_{title}.{extension}".format(
             doc_id=self.document_id,
@@ -60,7 +74,16 @@ class ContentVersion:
             self.extension,
             self.checksum,
             self.version_number,
-        ) == (other.id, other.document_id, other.title, other.extension, other.checksum, other.version_number)
+            self.content_size,
+        ) == (
+            other.id,
+            other.document_id,
+            other.title,
+            other.extension,
+            other.checksum,
+            other.version_number,
+            other.content_size,
+        )
 
 
 class ContentVersionList:
@@ -84,13 +107,16 @@ class ContentVersionList:
                     title=row[3],
                     extension=row[4],
                     version_number=int(row[5]),
+                    content_size=int(row[6]),
                 )
                 self.add_version(version)
 
     def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
-            writer.writerow(["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber"])
+            writer.writerow(
+                ["Id", "ContentDocumentId", "Checksum", "Title", "FileExtension", "VersionNumber", "ContentSize"]
+            )
             for version_id, version in self._data.items():
                 writer.writerow(
                     [
@@ -100,6 +126,7 @@ class ContentVersionList:
                         version.title,
                         version.extension,
                         version.version_number,
+                        version.content_size,
                     ]
                 )
 

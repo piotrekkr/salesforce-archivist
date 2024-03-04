@@ -148,6 +148,7 @@ def test_content_version_download_validator_validate_will_validate_in_parallel(s
             extension="ext1",
             title="version1",
             version_number=1,
+            content_size=10,
         )
     )
     version_list.add_version(
@@ -158,6 +159,7 @@ def test_content_version_download_validator_validate_will_validate_in_parallel(s
             extension="ext2",
             title="version2",
             version_number=2,
+            content_size=10,
         )
     )
     download_content_version_list = DownloadContentVersionList(
@@ -202,6 +204,7 @@ def test_content_version_download_validator_validate_will_gracefully_shutdown(sh
             extension="ext1",
             title="version1",
             version_number=1,
+            content_size=10,
         )
     )
     download_content_version_list = DownloadContentVersionList(
@@ -217,7 +220,13 @@ def test_content_version_download_validator_validate_will_gracefully_shutdown(sh
 def test_content_version_download_validator_validate_version_will_find_missing_file():
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version = ContentVersion(
-        id="VID1", document_id="DID", checksum="c1", extension="ext1", title="version1", version_number=1
+        id="VID1",
+        document_id="DID",
+        checksum="c1",
+        extension="ext1",
+        title="version1",
+        version_number=1,
+        content_size=10,
     )
     validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
@@ -228,10 +237,22 @@ def test_content_version_download_validator_validate_version_will_find_missing_f
 def test_content_version_download_validator_validate_version_will_check_validated_checksum(exists_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version_fail = ContentVersion(
-        id="VID1", document_id="DID", checksum="xyz", extension="ext1", title="version1", version_number=1
+        id="VID1",
+        document_id="DID",
+        checksum="xyz",
+        extension="ext1",
+        title="version1",
+        version_number=1,
+        content_size=10,
     )
     version_ok = ContentVersion(
-        id="VID2", document_id="DID", checksum="abc", extension="ext1", title="version1", version_number=2
+        id="VID2",
+        document_id="DID",
+        checksum="abc",
+        extension="ext1",
+        title="version1",
+        version_number=2,
+        content_size=10,
     )
     validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
     validated_path = "/path/to/file"
@@ -258,7 +279,13 @@ def test_content_version_download_validator_validate_version_will_calculate_chec
             file.write(file_data.encode("utf-8"))
 
         version = ContentVersion(
-            id="VID1", document_id="DID", checksum=checksum, extension="ext1", title="version1", version_number=1
+            id="VID1",
+            document_id="DID",
+            checksum=checksum,
+            extension="ext1",
+            title="version1",
+            version_number=1,
+            content_size=10,
         )
         validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
         validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
@@ -275,7 +302,13 @@ def test_content_version_download_validator_validate_version_will_update_validat
         with open(download_path, "wb") as file:
             file.write(data)
         version = ContentVersion(
-            id="VID1", document_id="DID", checksum="checksum", extension="ext1", title="version1", version_number=1
+            id="VID1",
+            document_id="DID",
+            checksum="checksum",
+            extension="ext1",
+            title="version1",
+            version_number=1,
+            content_size=10,
         )
         validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
         validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
@@ -288,7 +321,13 @@ def test_content_version_download_validator_validate_version_will_update_validat
 def test_content_version_download_validator_validate_version_will_return_invalid_on_exception(exists_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     version = ContentVersion(
-        id="VID1", document_id="DID", checksum="checksum", extension="ext1", title="version1", version_number=1
+        id="VID1",
+        document_id="DID",
+        checksum="checksum",
+        extension="ext1",
+        title="version1",
+        version_number=1,
+        content_size=10,
     )
     validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)

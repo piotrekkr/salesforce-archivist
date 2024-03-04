@@ -133,7 +133,7 @@ class Salesforce:
     ) -> None:
         tmp_dir = self._init_tmp_dir()
         query = (
-            "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber "
+            "SELECT Id, ContentDocumentId, Checksum, Title, FileExtension, VersionNumber, ContentSize "
             "FROM ContentVersion WHERE ContentDocumentId IN ({id_list}) AND ContentSize > 1"
         ).format(id_list=",".join(["'{id}'".format(id=doc_id) for doc_id in document_ids]))
         self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
@@ -149,6 +149,7 @@ class Salesforce:
                         title=row[3],
                         extension=row[4],
                         version_number=int(row[5]),
+                        content_size=int(row[6]),
                     )
                     content_version_list.add_version(version)
 
