@@ -129,7 +129,7 @@ def test_download_content_document_link_list_queries(
         )
         client.bulk2.assert_called_with(
             query=expected_query,
-            path=os.path.join(archivist_obj.data_dir, "tmp"),
+            path=os.path.join(archivist_obj.obj_dir, "tmp"),
             max_records=50000,
         )
 
@@ -186,7 +186,7 @@ def test_download_content_document_link_list_csv_reading(
         )
         client.bulk2 = Mock(
             side_effect=lambda *args, **kwargs: gen_temp_csv_files(
-                data=csv_files_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
+                data=csv_files_data, dir_name=os.path.join(archivist_obj.obj_dir, "tmp")
             )
         )
         document_link_list = Mock()
@@ -253,7 +253,7 @@ def test_download_content_version_list_queries(
         salesforce.download_content_version_list(**call_args)
         client.bulk2.assert_called_with(
             query=expected_query,
-            path=os.path.join(archivist_obj.data_dir, "tmp"),
+            path=os.path.join(archivist_obj.obj_dir, "tmp"),
             max_records=expected_max_records,
         )
 
@@ -298,7 +298,7 @@ def test_download_content_version_list_csv_reading(
         archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
         client.bulk2 = Mock(
             side_effect=lambda *args, **kwargs: gen_temp_csv_files(
-                data=csv_files_data, dir_name=os.path.join(archivist_obj.data_dir, "tmp")
+                data=csv_files_data, dir_name=os.path.join(archivist_obj.obj_dir, "tmp")
             )
         )
         content_version_list = Mock()

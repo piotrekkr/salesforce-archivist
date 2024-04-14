@@ -2,6 +2,7 @@ import signal
 from types import FrameType
 
 import click
+import yaml
 from click import Context
 
 from salesforce_archivist.archivist import Archivist, ArchivistConfig
@@ -20,7 +21,9 @@ signal.signal(signal.SIGINT, signal_handler)
 @click.pass_context
 def cli(ctx: Context) -> None:
     ctx.ensure_object(dict)
-    ctx.obj["config"] = ArchivistConfig("config.yaml")
+    with open("config.yaml") as file:
+        config = yaml.load(file, Loader=yaml.FullLoader)
+    ctx.obj["config"] = ArchivistConfig(**config)
 
 
 @cli.command()

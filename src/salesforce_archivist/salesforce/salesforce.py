@@ -39,7 +39,7 @@ class Salesforce:
         self._dir_name_field = dir_name_field
 
     def _init_tmp_dir(self) -> str:
-        tmp_dir = os.path.join(self._archivist_obj.data_dir, "tmp")
+        tmp_dir = os.path.join(self._archivist_obj.obj_dir, "tmp")
         os.makedirs(tmp_dir, exist_ok=True)
         for entry in os.scandir(tmp_dir):
             if entry.is_file():
@@ -90,7 +90,7 @@ class Salesforce:
 
     def load_content_document_link_list(self) -> ContentDocumentLinkList:
         document_link_list = ContentDocumentLinkList(
-            data_dir=self._archivist_obj.data_dir, dir_name_field=self._archivist_obj.dir_name_field
+            data_dir=self._archivist_obj.obj_dir, dir_name_field=self._archivist_obj.dir_name_field
         )
         if not document_link_list.data_file_exist():
             self.download_content_document_link_list(document_link_list=document_link_list)
@@ -105,7 +105,7 @@ class Salesforce:
         document_link_list: ContentDocumentLinkList,
         batch_size: int = 3000,
     ) -> ContentVersionList:
-        content_version_list = ContentVersionList(data_dir=self._archivist_obj.data_dir)
+        content_version_list = ContentVersionList(data_dir=self._archivist_obj.obj_dir)
         if not content_version_list.data_file_exist():
             doc_id_list = [link.content_document_id for link in document_link_list]
             list_size = len(doc_id_list)

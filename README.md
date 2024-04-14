@@ -257,9 +257,6 @@ You can remove this file or selected lines from inside this file. This will trig
 
 ## TODO
 
-- Use pydantic instead of schema
 - Add cli options to force re-download versions and document link lists
-- Add download size to stats
-- Add `--validate` option to `download` command that will trigger validation after download
 - Add some example terraform and/or ansible to use for deploy to VM in cloud
 - Use proper logging
