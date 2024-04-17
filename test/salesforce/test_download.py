@@ -156,10 +156,10 @@ def test_downloaded_content_version_list_is_downloaded():
 
 def test_download_content_version_list():
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     version = ContentVersion(
         id="VID",
         document_id=link.content_document_id,
@@ -171,12 +171,12 @@ def test_download_content_version_list():
     )
     version_list.add_version(version=version)
     download = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
     generator = download.__iter__()
     assert next(generator) == (
         version,
-        os.path.join(archivist_obj.data_dir, "files", link.download_dir_name, version.filename),
+        os.path.join(archivist_obj.obj_dir, "files", link.download_dir_name, version.filename),
     )
     with pytest.raises(StopIteration):
         next(generator)
@@ -185,10 +185,10 @@ def test_download_content_version_list():
 @patch.object(concurrent.futures.ThreadPoolExecutor, "submit")
 def test_content_version_downloader_download_will_download_in_parallel(submit_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     version_list.add_version(
         version=ContentVersion(
             id="VID1",
@@ -212,9 +212,9 @@ def test_content_version_downloader_download_will_download_in_parallel(submit_mo
         )
     )
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
-    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.obj_dir)
     sf_client = Mock()
     downloader = ContentVersionDownloader(
         sf_client=sf_client,
@@ -227,12 +227,12 @@ def test_content_version_downloader_download_will_download_in_parallel(submit_mo
 @patch("concurrent.futures.ThreadPoolExecutor")
 def test_content_version_downloader_download_will_use_defined_workers(thread_pool_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
-    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.obj_dir)
     sf_client = Mock()
     max_workers = 3
     downloader = ContentVersionDownloader(
@@ -246,10 +246,10 @@ def test_content_version_downloader_download_will_use_defined_workers(thread_poo
 @patch.object(concurrent.futures.ThreadPoolExecutor, "shutdown", return_value=None)
 def test_content_version_downloader_download_will_gracefully_shutdown(shutdown_mock, submit_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     version_list.add_version(
         version=ContentVersion(
             id="VID1",
@@ -262,9 +262,9 @@ def test_content_version_downloader_download_will_gracefully_shutdown(shutdown_m
         )
     )
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
-    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.obj_dir)
     sf_client = Mock()
     downloader = ContentVersionDownloader(
         sf_client=sf_client,
@@ -278,10 +278,10 @@ def test_content_version_downloader_download_will_gracefully_shutdown(shutdown_m
 @patch.object(ContentVersionDownloader, "download_content_version_from_sf", side_effect=RuntimeError)
 def test_content_version_downloader_download_will_return_download_stats(download_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     version_list.add_version(
         version=ContentVersion(
             id="VID1",
@@ -294,9 +294,9 @@ def test_content_version_downloader_download_will_return_download_stats(download
         )
     )
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
-    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.obj_dir)
     sf_client = Mock()
 
     downloader = ContentVersionDownloader(
@@ -325,7 +325,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_add_al
         version_number=1,
         content_size=10,
     )
-    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+    downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.obj_dir)
     sf_client = Mock()
     downloader = ContentVersionDownloader(
         sf_client=sf_client,
@@ -341,8 +341,8 @@ def test_content_version_downloader_download_content_version_from_sf_will_copy_e
     with tempfile.TemporaryDirectory() as tmp_dir:
         archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
 
-        already_downloaded_path = os.path.join(archivist_obj.data_dir, "files", "file1.txt")
-        to_download_path = os.path.join(archivist_obj.data_dir, "files", "file2.txt")
+        already_downloaded_path = os.path.join(archivist_obj.obj_dir, "files", "file1.txt")
+        to_download_path = os.path.join(archivist_obj.obj_dir, "files", "file2.txt")
         download_list_mock = MagicMock()
         version1 = ContentVersion(
             id="CID", document_id="DOC1", checksum="c", extension="e", title="title", version_number=1, content_size=10
@@ -359,7 +359,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_copy_e
         with open(already_downloaded_path, "wb") as downloaded_file:
             downloaded_file.write(file_contents)
 
-        downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+        downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.obj_dir)
         downloaded_version = DownloadedContentVersion(
             id=version1.id,
             document_id=version1.document_id,
@@ -389,7 +389,7 @@ def test_content_version_downloader_download_content_version_from_sf_will_downlo
             version_number=1,
             content_size=10,
         )
-        downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.data_dir)
+        downloaded_version_list = DownloadedContentVersionList(data_dir=archivist_obj.obj_dir)
 
         sf_client = MagicMock()
         sf_client.download_content_version.return_value.iter_content.return_value = [b"test"]

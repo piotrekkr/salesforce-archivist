@@ -1,11 +1,12 @@
 import datetime
-import os.path
-from typing import Any
+import os
+from typing import Any, Dict
 
 import click
 import humanize
-import yaml
-from schema import And, Optional, Or, Schema, Use
+from pydantic import BaseModel, Field, field_validator, ValidationInfo, computed_field
+from typing import Optional
+from typing_extensions import Annotated
 from simple_salesforce import Salesforce as SalesforceClient
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
@@ -14,40 +15,12 @@ from salesforce_archivist.salesforce.salesforce import Salesforce
 from salesforce_archivist.salesforce.validation import ValidatedContentVersionList
 
 
-class ArchivistObject:
-    def __init__(
-        self,
-        data_dir: str,
-        obj_type: str,
-        modified_date_lt: datetime.datetime | None = None,
-        modified_date_gt: datetime.datetime | None = None,
-        dir_name_field: str | None = None,
-    ):
-        self._data_dir: str = os.path.join(data_dir, obj_type)
-        self._obj_type: str = obj_type
-        self._modified_date_lt: datetime.datetime | None = modified_date_lt
-        self._modified_date_gt: datetime.datetime | None = modified_date_gt
-        self._dir_name_field: str | None = dir_name_field
-
-    @property
-    def data_dir(self) -> str:
-        return self._data_dir
-
-    @property
-    def obj_type(self) -> str:
-        return self._obj_type
-
-    @property
-    def modified_date_lt(self) -> datetime.datetime | None:
-        return self._modified_date_lt
-
-    @property
-    def modified_date_gt(self) -> datetime.datetime | None:
-        return self._modified_date_gt
-
-    @property
-    def dir_name_field(self) -> str | None:
-        return self._dir_name_field
+class ArchivistObject(BaseModel):
+    data_dir: Annotated[str, Field(min_length=1)]
+    obj_type: Annotated[str, Field(min_length=1)]
+    modified_date_lt: Optional[datetime.datetime] = None
+    modified_date_gt: Optional[datetime.datetime] = None
+    dir_name_field: Optional[str] = None
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, type(self)):
@@ -60,102 +33,49 @@ class ArchivistObject:
             other.modified_date_lt,
         )
 
-
-class ArchivistAuth:
-    def __init__(self, instance_url: str, username: str, consumer_key: str, private_key: str):
-        self._instance_url = instance_url
-        self._username = username
-        self._consumer_key = consumer_key
-        self._private_key = private_key
-
+    # https://github.com/python/mypy/issues/14461
+    @computed_field  # type: ignore[misc]
     @property
-    def instance_url(self) -> str:
-        return self._instance_url
-
-    @property
-    def username(self) -> str:
-        return self._username
-
-    @property
-    def consumer_key(self) -> str:
-        return self._consumer_key
-
-    @property
-    def private_key(self) -> str:
-        return self._private_key
+    def obj_dir(self) -> str:
+        return os.path.join(self.data_dir, self.obj_type)
 
 
-class ArchivistConfig:
-    _schema = Schema(
-        {
-            "data_dir": And(str, len, os.path.isdir, error="data_dir must be set and be a directory"),
-            "max_api_usage_percent": Or(int, float, Use(float), lambda v: 0.0 < v <= 100.0),
-            Optional("max_workers"): Optional(int, lambda v: 0 < v),
-            Optional("modified_date_gt"): lambda d: isinstance(d, datetime.datetime),
-            Optional("modified_date_lt"): lambda d: isinstance(d, datetime.datetime),
-            "auth": {
-                "instance_url": And(str, len),
-                "username": And(str, len),
-                "consumer_key": And(str, len),
-                "private_key": And(bytes, len, Use(lambda b: b.decode("UTF-8"))),
-            },
-            "objects": {
-                str: {
-                    Optional("modified_date_gt"): lambda d: isinstance(d, datetime.datetime),
-                    Optional("modified_date_lt"): lambda d: isinstance(d, datetime.datetime),
-                    Optional("dir_name_field"): And(str, len),
+class ArchivistAuth(BaseModel):
+    instance_url: Annotated[str, Field(min_length=1)]
+    username: Annotated[str, Field(min_length=1)]
+    consumer_key: Annotated[str, Field(min_length=1)]
+    private_key: Annotated[str, Field(min_length=1)]
+
+
+class ArchivistConfig(BaseModel):
+    auth: ArchivistAuth
+    data_dir: Annotated[str, Field(min_length=1)]
+    max_api_usage_percent: Optional[Annotated[float, Field(gt=0.0, le=100.0)]] = None
+    max_workers: Optional[Annotated[int, Field(gt=0)]] = None
+    modified_date_gt: Optional[datetime.datetime] = None
+    modified_date_lt: Optional[datetime.datetime] = None
+    objects: Dict[str, ArchivistObject]
+
+    @field_validator("objects", mode="before")
+    @classmethod
+    def serialize_categories(cls, objects: dict, info: ValidationInfo) -> dict:
+        for obj_type, obj_dict in objects.items():
+            obj_dict.update(
+                {
+                    "obj_type": obj_type,
+                    "data_dir": info.data["data_dir"],
+                    "modified_date_gt": obj_dict.get("modified_date_gt", info.data["modified_date_gt"]),
+                    "modified_date_lt": obj_dict.get("modified_date_lt", info.data["modified_date_lt"]),
                 }
-            },
-        }
-    )
-
-    def __init__(self, path: str):
-        with open(path) as file:
-            config = self._schema.validate(yaml.load(file, Loader=yaml.FullLoader))
-        self._auth: ArchivistAuth = ArchivistAuth(**config["auth"])
-        self._data_dir: str = config["data_dir"]
-        self._max_api_usage_percent: float = config["max_api_usage_percent"]
-        self.modified_date_gt: datetime.datetime | None = config.get("modified_date_gt")
-        self.modified_date_lt: datetime.datetime | None = config.get("modified_date_lt")
-        self._max_workers: int = config.get("max_workers")
-        self._objects = []
-        for obj_type, obj_config in config["objects"].items():
-            self._objects.append(
-                ArchivistObject(
-                    data_dir=self._data_dir,
-                    obj_type=obj_type,
-                    modified_date_lt=obj_config.get("modified_date_lt", self.modified_date_lt),
-                    modified_date_gt=obj_config.get("modified_date_gt", self.modified_date_gt),
-                    dir_name_field=obj_config.get("dir_name_field"),
-                )
             )
-
-    @property
-    def data_dir(self) -> str:
-        return self._data_dir
-
-    @property
-    def max_workers(self) -> int:
-        return self._max_workers
-
-    @property
-    def max_api_usage_percent(self) -> float:
-        return self._max_api_usage_percent
-
-    @property
-    def auth(self) -> ArchivistAuth:
-        return self._auth
-
-    @property
-    def objects(self) -> list[ArchivistObject]:
-        return self._objects
+        return objects
 
 
 class Archivist:
     def __init__(
         self,
         data_dir: str,
-        objects: list[ArchivistObject],
+        objects: dict[str, ArchivistObject],
         sf_client: SalesforceClient,
         max_api_usage_percent: float | None = None,
         max_workers: int | None = None,
@@ -177,7 +97,7 @@ class Archivist:
             "errors": 0,
             "size": 0,
         }
-        for archivist_obj in self._objects:
+        for archivist_obj in self._objects.values():
             obj_type = archivist_obj.obj_type
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
@@ -194,7 +114,7 @@ class Archivist:
             download_list = DownloadContentVersionList(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
-                data_dir=archivist_obj.data_dir,
+                data_dir=archivist_obj.obj_dir,
             )
             stats = salesforce.download_files(
                 download_content_version_list=download_list,
@@ -225,7 +145,7 @@ class Archivist:
             "processed": 0,
             "invalid": 0,
         }
-        for archivist_obj in self._objects:
+        for archivist_obj in self._objects.values():
             salesforce = Salesforce(
                 archivist_obj=archivist_obj,
                 client=SalesforceApiClient(self._sf_client),
@@ -238,7 +158,7 @@ class Archivist:
             download_list = DownloadContentVersionList(
                 document_link_list=document_link_list,
                 content_version_list=content_version_list,
-                data_dir=archivist_obj.data_dir,
+                data_dir=archivist_obj.obj_dir,
             )
             stats = salesforce.validate_download(
                 download_content_version_list=download_list,

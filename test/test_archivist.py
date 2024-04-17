@@ -5,7 +5,8 @@ import textwrap
 from unittest.mock import patch, MagicMock, call, ANY
 
 import pytest
-import schema
+import yaml
+from pydantic import ValidationError
 
 from salesforce_archivist.archivist import ArchivistObject, ArchivistAuth, ArchivistConfig, Archivist
 from salesforce_archivist.salesforce.download import DownloadedContentVersionList, DownloadStats
@@ -46,7 +47,8 @@ def test_archivist_object_props(data_dir, obj_type, modified_date_lt, modified_d
         archivist_obj.modified_date_lt,
         archivist_obj.modified_date_gt,
         archivist_obj.dir_name_field,
-    ) == (os.path.join(data_dir, obj_type), obj_type, modified_date_lt, modified_date_gt, dir_name_field)
+        archivist_obj.obj_dir,
+    ) == (data_dir, obj_type, modified_date_lt, modified_date_gt, dir_name_field, os.path.join(data_dir, obj_type))
 
 
 def test_archivist_object_quality():
@@ -94,7 +96,7 @@ def test_archivist_auth_props():
 
 
 @pytest.mark.parametrize(
-    "yaml_data, expect_exception",
+    "yaml_str, expect_exception",
     [
         (
             """\
@@ -148,22 +150,19 @@ objects:
         ),
     ],
 )
-def test_archivist_config_validation(yaml_data, expect_exception):
+def test_archivist_config_validation(yaml_str, expect_exception):
     with tempfile.TemporaryDirectory() as tmp_dir:
-        path = os.path.join(tmp_dir, "config.yaml")
-        with open(path, "wb") as config:
-            data = yaml_data.replace("{data_dir}", tmp_dir)
-            config.write(data.encode("utf-8"))
+        data = yaml_str.replace("{data_dir}", tmp_dir)
         if expect_exception:
-            with pytest.raises(schema.SchemaError):
-                ArchivistConfig(path)
+            with pytest.raises(ValidationError):
+                ArchivistConfig(**yaml.safe_load(data))
         else:
-            ArchivistConfig(path)
+            ArchivistConfig(**yaml.safe_load(data))
 
 
 def test_archivist_config_props():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        yaml = textwrap.dedent(
+        yaml_str = textwrap.dedent(
             """\
             data_dir: {data_dir}
             max_api_usage_percent: 40
@@ -184,11 +183,8 @@ def test_archivist_config_props():
               Booking__c: {{}}
             """
         ).format(data_dir=tmp_dir)
-        path = os.path.join(tmp_dir, "config.yaml")
-        with open(path, "wb") as config:
-            config.write(yaml.encode("utf-8"))
 
-        config = ArchivistConfig(path)
+        config = ArchivistConfig(**yaml.safe_load(yaml_str))
 
         assert config.data_dir == tmp_dir
         assert config.max_api_usage_percent == 40.0
@@ -199,9 +195,10 @@ def test_archivist_config_props():
         assert config.auth.instance_url == "https://login.salesforce.com/"
         assert config.auth.consumer_key == "abc"
         assert config.auth.private_key == "test\n"
-        archivist_object = config.objects[0]
+        archivist_object = config.objects["User"]
         assert archivist_object.obj_type == "User"
-        assert archivist_object.data_dir == os.path.join(config.data_dir, archivist_object.obj_type)
+        assert archivist_object.data_dir == config.data_dir
+        assert archivist_object.obj_dir == os.path.join(config.data_dir, archivist_object.obj_type)
         assert archivist_object.dir_name_field == "LinkedEntity.Username"
         assert archivist_object.modified_date_gt == datetime.datetime(
             year=2017, month=1, day=1, tzinfo=datetime.timezone.utc
@@ -209,7 +206,7 @@ def test_archivist_config_props():
         assert archivist_object.modified_date_lt == datetime.datetime(
             year=2023, month=8, day=1, tzinfo=datetime.timezone.utc
         )
-        archivist_object_with_defaults = config.objects[1]
+        archivist_object_with_defaults = config.objects["Booking__c"]
         assert archivist_object_with_defaults.modified_date_gt == datetime.datetime(
             year=2011, month=1, day=1, tzinfo=datetime.timezone.utc
         )
@@ -221,7 +218,7 @@ def test_archivist_config_props():
 @patch.object(DownloadedContentVersionList, "data_file_exist", side_effect=[False, True])
 @patch.object(DownloadedContentVersionList, "load_data_from_file")
 def test_archivist_download_will_load_downloaded_list_if_possible(load_mock, exist_mock):
-    archivist = Archivist(data_dir="/fake/dir", objects=[], sf_client=MagicMock())
+    archivist = Archivist(data_dir="/fake/dir", objects={}, sf_client=MagicMock())
     archivist.download()
     exist_mock.assert_called_once()
     load_mock.assert_not_called()
@@ -237,10 +234,10 @@ def test_archivist_download_will_load_lists_and_call_download_method(
     download_mock, load_version_list_mock, load_doc_link_list_mock
 ):
     download_mock.return_value = DownloadStats()
-    objects = [
-        ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
-        ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
-    ]
+    objects = {
+        "User": ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
+        "Email": ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
+    }
     archivist = Archivist(data_dir="/fake/dir", objects=objects, sf_client=MagicMock())
     archivist.download()
     assert load_doc_link_list_mock.call_count == 2
@@ -262,9 +259,9 @@ def test_archivist_download_will_return_correct_bool_value(
         download_mock.return_value = stats
         archivist = Archivist(
             data_dir="/fake/dir",
-            objects=[
-                ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
-            ],
+            objects={
+                "User": ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
+            },
             sf_client=MagicMock(),
         )
         assert archivist.download() == expected_return
@@ -273,7 +270,7 @@ def test_archivist_download_will_return_correct_bool_value(
 @patch.object(ValidatedContentVersionList, "data_file_exist", side_effect=[False, True])
 @patch.object(ValidatedContentVersionList, "load_data_from_file")
 def test_archivist_validate_will_load_validated_list_if_possible(load_mock, exist_mock):
-    archivist = Archivist(data_dir="/fake/dir", objects=[], sf_client=MagicMock())
+    archivist = Archivist(data_dir="/fake/dir", objects={}, sf_client=MagicMock())
     archivist.validate()
     exist_mock.assert_called_once()
     load_mock.assert_not_called()
@@ -289,10 +286,10 @@ def test_archivist_validate_will_load_lists_and_call_validate_method(
     validate_mock, load_version_list_mock, load_doc_link_list_mock
 ):
     validate_mock.return_value = ValidationStats()
-    objects = [
-        ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
-        ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
-    ]
+    objects = {
+        "User": ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
+        "Email": ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
+    }
     max_workers = 6
     archivist = Archivist(data_dir="/fake/dir", objects=objects, sf_client=MagicMock(), max_workers=max_workers)
     archivist.validate()

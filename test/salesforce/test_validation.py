@@ -136,10 +136,10 @@ def test_download_stats_add_processed():
 @patch.object(concurrent.futures.ThreadPoolExecutor, "submit")
 def test_content_version_download_validator_validate_will_validate_in_parallel(submit_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     version_list.add_version(
         version=ContentVersion(
             id="VID1",
@@ -163,9 +163,9 @@ def test_content_version_download_validator_validate_will_validate_in_parallel(s
         )
     )
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
-    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
     validator.validate(download_list=download_content_version_list)
     assert submit_mock.call_count == 2
@@ -174,12 +174,12 @@ def test_content_version_download_validator_validate_will_validate_in_parallel(s
 @patch("concurrent.futures.ThreadPoolExecutor")
 def test_content_version_download_validator_validate_will_use_defined_workers(thread_pool_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
-    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
     max_workers = 3
     validator = ContentVersionDownloadValidator(
         validated_content_version_list=validated_version_list, max_workers=max_workers
@@ -192,10 +192,10 @@ def test_content_version_download_validator_validate_will_use_defined_workers(th
 @patch.object(concurrent.futures.ThreadPoolExecutor, "shutdown", return_value=None)
 def test_content_version_download_validator_validate_will_gracefully_shutdown(shutdown_mock, submit_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
-    link_list = ContentDocumentLinkList(data_dir=archivist_obj.data_dir)
+    link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
     link = ContentDocumentLink(linked_entity_id="LID", content_document_id="DOC1")
     link_list.add_link(doc_link=link)
-    version_list = ContentVersionList(data_dir=archivist_obj.data_dir)
+    version_list = ContentVersionList(data_dir=archivist_obj.obj_dir)
     version_list.add_version(
         version=ContentVersion(
             id="VID1",
@@ -208,9 +208,9 @@ def test_content_version_download_validator_validate_will_gracefully_shutdown(sh
         )
     )
     download_content_version_list = DownloadContentVersionList(
-        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.data_dir
+        document_link_list=link_list, content_version_list=version_list, data_dir=archivist_obj.obj_dir
     )
-    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
     with pytest.raises(KeyboardInterrupt):
         validator.validate(download_list=download_content_version_list)
@@ -228,7 +228,7 @@ def test_content_version_download_validator_validate_version_will_find_missing_f
         version_number=1,
         content_size=10,
     )
-    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
     assert not validator.validate_version(version=version, download_path="/non/existing/path")
 
@@ -254,7 +254,7 @@ def test_content_version_download_validator_validate_version_will_check_validate
         version_number=2,
         content_size=10,
     )
-    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
     validated_path = "/path/to/file"
     validated_version_list.add_version(ValidatedContentVersion(path=validated_path, checksum="abc"))
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
@@ -287,7 +287,7 @@ def test_content_version_download_validator_validate_version_will_calculate_chec
             version_number=1,
             content_size=10,
         )
-        validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+        validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
         validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
         assert validator.validate_version(version=version, download_path=download_path) == should_match
         assert len(validated_version_list) == 1
@@ -310,7 +310,7 @@ def test_content_version_download_validator_validate_version_will_update_validat
             version_number=1,
             content_size=10,
         )
-        validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+        validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
         validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
         validator.validate_version(version=version, download_path=download_path)
         assert len(validated_version_list) == 1
@@ -329,6 +329,6 @@ def test_content_version_download_validator_validate_version_will_return_invalid
         version_number=1,
         content_size=10,
     )
-    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.data_dir)
+    validated_version_list = ValidatedContentVersionList(data_dir=archivist_obj.obj_dir)
     validator = ContentVersionDownloadValidator(validated_content_version_list=validated_version_list)
     assert not validator.validate_version(version=version, download_path="/fake/path/download")
