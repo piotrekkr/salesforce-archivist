@@ -22,7 +22,7 @@ from salesforce_archivist.salesforce.validation import ContentVersionDownloadVal
             None,
             None,
             None,
-            "SELECT LinkedEntityId, ContentDocumentId FROM ContentDocumentLink WHERE LinkedEntity.Type = 'User'",
+            "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type FROM ContentDocumentLink WHERE ContentDocumentId IN (SELECT Id FROM ContentDocument )",
         ),
         (
             datetime(
@@ -38,10 +38,9 @@ from salesforce_archivist.salesforce.validation import ContentVersionDownloadVal
             None,
             None,
             (
-                "SELECT LinkedEntityId, ContentDocumentId "
+                "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type "
                 "FROM ContentDocumentLink "
-                "WHERE LinkedEntity.Type = 'User' "
-                "AND ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z"
+                "WHERE ContentDocumentId IN (SELECT Id FROM ContentDocument WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z)"
             ),
         ),
         (
@@ -67,11 +66,11 @@ from salesforce_archivist.salesforce.validation import ContentVersionDownloadVal
             ),
             None,
             (
-                "SELECT LinkedEntityId, ContentDocumentId "
+                "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type "
                 "FROM ContentDocumentLink "
-                "WHERE LinkedEntity.Type = 'User' "
-                "AND ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z "
-                "AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
+                "WHERE ContentDocumentId IN ("
+                "SELECT Id FROM ContentDocument WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
+                ")"
             ),
         ),
         (
@@ -97,11 +96,11 @@ from salesforce_archivist.salesforce.validation import ContentVersionDownloadVal
             ),
             "DirField",
             (
-                "SELECT LinkedEntityId, ContentDocumentId, DirField "
+                "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type, DirField "
                 "FROM ContentDocumentLink "
-                "WHERE LinkedEntity.Type = 'User' "
-                "AND ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z "
-                "AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
+                "WHERE ContentDocumentId IN ("
+                "SELECT Id FROM ContentDocument WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
+                ")"
             ),
         ),
     ],
@@ -141,35 +140,35 @@ def test_download_content_document_link_list_queries(
         [],
         # no results from query (file with only header)
         [
-            [["LinkedEntityId", "ContentDocumentId"]],
+            [["LinkedEntityId", "ContentDocumentId", "Type"]],
         ],
         # results without custom field for dir name
         [
             [
-                ["LinkedEntityId", "ContentDocumentId"],
-                ["LinkedEntityId_1", "ContentDocumentId_1"],
-                ["LinkedEntityId_2", "ContentDocumentId_2"],
+                ["LinkedEntityId", "ContentDocumentId", "User"],
+                ["LinkedEntityId_1", "ContentDocumentId_1", "User"],
+                ["LinkedEntityId_2", "ContentDocumentId_2", "User"],
             ]
         ],
         # results with custom field for dir name
         [
             [
-                ["LinkedEntityId", "ContentDocumentId", "CustomFieldForDirName"],
-                ["LinkedEntityId_1", "ContentDocumentId_1", "CustomFieldForDirName_1"],
-                ["LinkedEntityId_2", "ContentDocumentId_2", "CustomFieldForDirName_2"],
+                ["LinkedEntityId", "ContentDocumentId", "User", "CustomFieldForDirName"],
+                ["LinkedEntityId_1", "ContentDocumentId_1", "User", "CustomFieldForDirName_1"],
+                ["LinkedEntityId_2", "ContentDocumentId_2", "User", "CustomFieldForDirName_2"],
             ]
         ],
         # results with custom field for dir name in multiple csv files
         [
             [
-                ["LinkedEntityId", "ContentDocumentId", "CustomFieldForDirName"],
-                ["LinkedEntityId_1", "ContentDocumentId_1", "CustomFieldForDirName_1"],
-                ["LinkedEntityId_2", "ContentDocumentId_2", "CustomFieldForDirName_2"],
+                ["LinkedEntityId", "ContentDocumentId", "User", "CustomFieldForDirName"],
+                ["LinkedEntityId_1", "ContentDocumentId_1", "User", "CustomFieldForDirName_1"],
+                ["LinkedEntityId_2", "ContentDocumentId_2", "User", "CustomFieldForDirName_2"],
             ],
             [
-                ["LinkedEntityId", "ContentDocumentId", "CustomFieldForDirName"],
-                ["LinkedEntityId_3", "ContentDocumentId_3", "CustomFieldForDirName_3"],
-                ["LinkedEntityId_4", "ContentDocumentId_4", "CustomFieldForDirName_4"],
+                ["LinkedEntityId", "ContentDocumentId", "User", "CustomFieldForDirName"],
+                ["LinkedEntityId_3", "ContentDocumentId_3", "User", "CustomFieldForDirName_3"],
+                ["LinkedEntityId_4", "ContentDocumentId_4", "User", "CustomFieldForDirName_4"],
             ],
         ],
     ],
@@ -182,7 +181,7 @@ def test_download_content_document_link_list_csv_reading(
         archivist_obj = ArchivistObject(
             data_dir=tmp_dir,
             obj_type="User",
-            dir_name_field=(csv_files_data[0][0][2] if len(csv_files_data) and len(csv_files_data[0][0]) > 2 else None),
+            dir_name_field=(csv_files_data[0][0][3] if len(csv_files_data) and len(csv_files_data[0][0]) > 3 else None),
         )
         client.bulk2 = Mock(
             side_effect=lambda *args, **kwargs: gen_temp_csv_files(
@@ -196,7 +195,7 @@ def test_download_content_document_link_list_csv_reading(
                 doc_link = ContentDocumentLink(
                     linked_entity_id=row[0],
                     content_document_id=row[1],
-                    download_dir_name=row[2] if len(row) > 2 else row[0],
+                    download_dir_name=row[3] if len(row) > 3 else row[0],
                 )
                 add_link_calls.append(call(doc_link))
 
