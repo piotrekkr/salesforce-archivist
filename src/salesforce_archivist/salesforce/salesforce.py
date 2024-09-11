@@ -47,25 +47,37 @@ class Salesforce:
         return tmp_dir
 
     def _get_content_document_list_query(self) -> str:
-        select_list = ["LinkedEntityId", "ContentDocumentId"]
+        select_list = ["LinkedEntityId", "ContentDocumentId", "LinkedEntity.Type"]
         if self._archivist_obj.dir_name_field is not None and self._archivist_obj.dir_name_field not in select_list:
             select_list.append(self._archivist_obj.dir_name_field)
-        where_list = ["LinkedEntity.Type = '{obj_type}'".format(obj_type=self._archivist_obj.obj_type)]
+        where_conditions = []
         if self._archivist_obj.modified_date_lt is not None:
-            where_list.append(
+            where_conditions.append(
                 "ContentDocument.ContentModifiedDate < {date}".format(
                     date=self._archivist_obj.modified_date_lt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
         if self._archivist_obj.modified_date_gt is not None:
-            where_list.append(
+            where_conditions.append(
                 "ContentDocument.ContentModifiedDate > {date}".format(
                     date=self._archivist_obj.modified_date_gt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
-        return "SELECT {fields} FROM ContentDocumentLink WHERE {where}".format(
-            fields=", ".join(select_list), where=" AND ".join(where_list)
-        )
+        where = ""
+        if len(where_conditions):
+            where = "WHERE {}".format(" AND ".join(where_conditions))
+        # Using WHERE IN and not using filter on `LinkedEntity.Type` is done because of SF restrictions like:
+        #
+        #   Implementation restriction: ContentDocumentLink requires a filter by a single Id on ContentDocumentId
+        #   or LinkedEntityId using the equals operator or multiple Id's using the IN operator.
+        #
+        #   Implementation restriction: filtering on non-id fields is only permitted when filtering
+        #   by ContentDocumentLink.LinkedEntityId using the equals operator.
+
+        return (
+            "SELECT {fields} FROM ContentDocumentLink "
+            "WHERE ContentDocumentId IN (SELECT Id FROM ContentDocument {where})"
+        ).format(fields=", ".join(select_list), where=where)
 
     def download_content_document_link_list(
         self,
@@ -81,10 +93,14 @@ class Salesforce:
                 reader = csv.reader(file)
                 next(reader)
                 for row in reader:
+                    # If type is not the same as the object type, skip.
+                    # This is a workaround for restriction on ContentDocumentLink filtering directly in query.
+                    if row[2] != self._archivist_obj.obj_type:
+                        continue
                     link = ContentDocumentLink(
                         linked_entity_id=row[0],
                         content_document_id=row[1],
-                        download_dir_name=row[2] if self._archivist_obj.dir_name_field is not None else None,
+                        download_dir_name=row[3] if self._archivist_obj.dir_name_field is not None else None,
                     )
                     document_link_list.add_link(link)
 
