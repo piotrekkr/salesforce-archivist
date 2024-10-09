@@ -66,13 +66,14 @@ class Salesforce:
         where = ""
         if len(where_conditions):
             where = "WHERE {}".format(" AND ".join(where_conditions))
+
         # Using WHERE IN and not using filter on `LinkedEntity.Type` is done because of SF restrictions like:
         #
-        #   Implementation restriction: ContentDocumentLink requires a filter by a single Id on ContentDocumentId
-        #   or LinkedEntityId using the equals operator or multiple Id's using the IN operator.
+        #   Implementation restriction: ContentDocumentLink requires a filter by a single ID on ContentDocumentId
+        #   or LinkedEntityId using the equals operator or multiple ID's using the IN operator.
         #
         #   Implementation restriction: filtering on non-id fields is only permitted when filtering
-        #   by ContentDocumentLink.LinkedEntityId using the equals operator.
+        #   by ContentDocumentLink.LinkedEntityId using the equal operator.
 
         return (
             "SELECT {fields} FROM ContentDocumentLink "
