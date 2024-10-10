@@ -179,7 +179,6 @@ erDiagram
     }
     "Entity (User, Event,...)" {
         string Id
-
     }
     ContentVersion {
         string Id
@@ -189,12 +188,25 @@ erDiagram
         string FileExtension
         string VersionNumber
     }
+    Attachment {
+        string Id
+        reference ParentId
+        string Name
+        datetime LastModifiedDate
+    }
     ContentDocument ||--|{ ContentVersion : ""
     ContentDocumentLink }o--|| ContentDocument : ""
     ContentDocumentLink }o--|| "Entity (User, Event,...)" : ""
+    Attachment }o--|| "Entity (User, Event,...)" : ""
 ```
 Files (`ContentDocument` objects) can be linked (using `ContentDocumentLink` objects) to multiple entities
 (SF objects like `User`, `Case`, and so on). File can have multiple versions (`ContentVersion` objects).
+
+`Attachment` object is a legacy way of storing files in Salesforce. It is not recommended to use it anymore.
+However, it is still used in some orgs. `Attachment` object is linked to other objects using `ParentId` field and
+no versioning is available.
+
+This project can handle both `ContentDocument` and `Attachment` objects.
 
 ### Download
 

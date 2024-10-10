@@ -3,37 +3,45 @@ import csv
 import hashlib
 import os
 import threading
-from typing import Any
+from typing import Any, Self, Union, Optional
 
 import click
 
+from salesforce_archivist.salesforce.attachment import Attachment
 from salesforce_archivist.salesforce.content_version import ContentVersion
-from salesforce_archivist.salesforce.download import DownloadContentVersionList
+from salesforce_archivist.salesforce.download import DownloadContentVersionList, DownloadAttachmentList
 
 
-class ValidatedContentVersion:
-    def __init__(self, path: str, checksum: str):
+class ValidatedFile:
+    def __init__(self, path: str, checksum: Optional[str] = None, content_size: Optional[int] = None):
         self._path = path
+        self._content_size = content_size
         self._checksum = checksum
+        if self._checksum is None and self._content_size is None:
+            raise ValueError("Either checksum or content_size must be provided")
 
     @property
     def path(self) -> str:
         return self._path
 
     @property
-    def checksum(self) -> str:
+    def content_size(self) -> Optional[int]:
+        return self._content_size
+
+    @property
+    def checksum(self) -> Optional[str]:
         return self._checksum
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, type(self)):
             return NotImplemented
-        return (self.checksum, self.path) == (other.checksum, other.path)
+        return (self.content_size, self._checksum, self.path) == (other.content_size, other._checksum, other.path)
 
 
-class ValidatedContentVersionList:
+class ValidatedList:
     def __init__(self, data_dir: str):
-        self._data: dict[str, ValidatedContentVersion] = {}
-        self._path = os.path.join(data_dir, "validated_versions.csv")
+        self._data: dict[str, ValidatedFile] = {}
+        self._path = os.path.join(data_dir, "validated_files.csv")
 
     def data_file_exist(self) -> bool:
         return os.path.exists(self._path)
@@ -43,28 +51,31 @@ class ValidatedContentVersionList:
             reader = csv.reader(file)
             next(reader)
             for row in reader:
-                version = ValidatedContentVersion(checksum=row[0], path=row[1])
-                self.add_version(version)
+                checksum = row[0] if row[0] != "" else None
+                size = int(row[1]) if row[1] != "" else None
+                validated_file = ValidatedFile(path=row[2], checksum=checksum, content_size=size)
+                self.add(validated_file)
 
     def save(self) -> None:
         with open(self._path, "w") as file:
             writer = csv.writer(file)
-            writer.writerow(["Checksum", "Path"])
-            for version_id, version in self._data.items():
+            writer.writerow(["Checksum", "Content Size", "Path"])
+            for _, validated_file in self._data.items():
                 writer.writerow(
                     [
-                        version.checksum,
-                        version.path,
+                        validated_file.checksum if validated_file.checksum is not None else "",
+                        validated_file.content_size if validated_file.content_size is not None else "",
+                        validated_file.path,
                     ]
                 )
 
-    def add_version(self, version: ValidatedContentVersion) -> None:
-        self._data[version.path] = version
+    def add(self, validated_file: ValidatedFile) -> None:
+        self._data[validated_file.path] = validated_file
 
     def is_validated(self, path: str) -> bool:
         return path in self._data
 
-    def get_version(self, path: str) -> ValidatedContentVersion | None:
+    def get(self, path: str) -> ValidatedFile | None:
         return self._data.get(path)
 
     @property
@@ -104,10 +115,15 @@ class ValidationStats:
     def invalid(self) -> int:
         return self._invalid
 
+    def combine(self, other: Self) -> None:
+        self._total += other.total
+        self._processed += other.processed
+        self._invalid += other.invalid
 
-class ContentVersionDownloadValidator:
-    def __init__(self, validated_content_version_list: ValidatedContentVersionList, max_workers: int | None = None):
-        self._validated_list = validated_content_version_list
+
+class DownloadValidator:
+    def __init__(self, validated_list: ValidatedList, max_workers: int | None = None):
+        self._validated_list = validated_list
         self._stats = ValidationStats()
         self._lock = threading.Lock()
         self._max_workers = max_workers
@@ -127,6 +143,10 @@ class ContentVersionDownloadValidator:
         )
 
     @staticmethod
+    def _calculate_size(path: str) -> int:
+        return os.path.getsize(path)
+
+    @staticmethod
     def _calculate_md5(path: str) -> str:
         hash_md5 = hashlib.md5()
         with open(path, "rb") as f:
@@ -134,42 +154,81 @@ class ContentVersionDownloadValidator:
                 hash_md5.update(chunk)
         return hash_md5.hexdigest()
 
-    def validate_version(self, version: ContentVersion, download_path: str) -> bool:
-        msg = "[ OK ] {id} => {path}".format(
-            id=version.id,
-            path=download_path,
-        )
-        invalid = False
+    def _validate_version(self, version: ContentVersion, download_path: str) -> bool:
+        valid = True
+        msg = "[ OK ] {id} => {path}".format(id=version.id, path=download_path)
         try:
             if not os.path.exists(download_path):
                 msg = "[ KO ] {id} => File does not exist: {path}".format(id=version.id, path=download_path)
-                invalid = True
-            elif (validated_version := self._validated_list.get_version(download_path)) is not None:
-                if version.checksum != validated_version.checksum:
+                valid = False
+            elif (validated := self._validated_list.get(download_path)) is not None:
+                if version.checksum != validated.checksum:
                     msg = "[ KO ] {id} => checksum invalid: {path}".format(id=version.id, path=download_path)
-                    invalid = True
+                    valid = False
             else:
                 checksum = self._calculate_md5(download_path)
                 if version.checksum != checksum:
                     msg = "[ KO ] {id} => checksum invalid: {path}".format(id=version.id, path=download_path)
-                    invalid = True
-                self._validated_list.add_version(ValidatedContentVersion(path=download_path, checksum=checksum))
+                    valid = False
+                self._validated_list.add(
+                    ValidatedFile(path=download_path, checksum=checksum, content_size=version.content_size)
+                )
         except Exception as e:
             msg = "[ KO ] {id} => Exception: {e}".format(id=version.id, e=e)
-            invalid = True
+            valid = False
         finally:
             with self._lock:
-                self._stats.add_processed(invalid=invalid)
-                self._print_validated_msg(msg, invalid=invalid)
+                self._stats.add_processed(invalid=not valid)
+                self._print_validated_msg(msg, invalid=not valid)
 
-        return not invalid
+        return valid
 
-    def validate(self, download_list: DownloadContentVersionList) -> ValidationStats:
+    def _validate_attachment(self, attachment: Attachment, download_path: str) -> bool:
+        valid = True
+        msg = "[ OK ] {id} => {path}".format(id=attachment.id, path=download_path)
+        try:
+            if not os.path.exists(download_path):
+                msg = "[ KO ] {id} => File does not exist: {path}".format(id=attachment.id, path=download_path)
+                valid = False
+            elif (validated := self._validated_list.get(download_path)) is not None:
+                if attachment.content_size != validated.content_size:
+                    msg = "[ KO ] {id} => size invalid: {path}".format(id=attachment.id, path=download_path)
+                    valid = False
+            else:
+                size = self._calculate_size(download_path)
+                if attachment.content_size != size:
+                    msg = "[ KO ] {id} => size invalid: {path}".format(id=attachment.id, path=download_path)
+                    valid = False
+                self._validated_list.add(
+                    ValidatedFile(path=download_path, checksum=None, content_size=attachment.content_size)
+                )
+        except Exception as e:
+            msg = "[ KO ] {id} => Exception: {e}".format(id=attachment.id, e=e)
+            valid = False
+        finally:
+            with self._lock:
+                self._stats.add_processed(invalid=not valid)
+                self._print_validated_msg(msg, invalid=not valid)
+        return valid
+
+    def validate_object(self, obj: Union[ContentVersion, Attachment], download_path: str) -> bool:
+        if isinstance(obj, ContentVersion):
+            return self._validate_version(obj, download_path)
+        elif isinstance(obj, Attachment):
+            return self._validate_attachment(obj, download_path)
+        else:
+            msg = "[ KO ] {id} => Invalid object type provided: {type}".format(id=obj.id, type=type(obj))
+            with self._lock:
+                self._stats.add_processed(invalid=True)
+                self._print_validated_msg(msg, invalid=True)
+            return False
+
+    def validate(self, download_list: Union[DownloadContentVersionList, DownloadAttachmentList]) -> ValidationStats:
         self._stats.initialize(total=len(download_list))
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=self._max_workers) as executor:
-                for version, download_path in download_list:
-                    executor.submit(self.validate_version, version=version, download_path=download_path)
+                for obj, download_path in download_list:
+                    executor.submit(self.validate_object, obj=obj, download_path=download_path)
         except KeyboardInterrupt as e:
             executor.shutdown(wait=True, cancel_futures=True)
             raise e

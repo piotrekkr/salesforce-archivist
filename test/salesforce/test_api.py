@@ -5,6 +5,7 @@ from requests import Response
 from simple_salesforce.api import Usage
 
 from salesforce_archivist.salesforce.api import ApiUsage, SalesforceApiClient
+from salesforce_archivist.salesforce.attachment import Attachment
 from salesforce_archivist.salesforce.content_version import ContentVersion
 
 
@@ -27,7 +28,13 @@ def test_bulk2():
 
 def test_download_content_version():
     content_version = ContentVersion(
-        id="VID", document_id="DID", extension="pdf", title="Title", checksum="MD5", version_number=1, content_size=10
+        version_id="VID",
+        document_id="DID",
+        extension="pdf",
+        title="Title",
+        checksum="MD5",
+        version_number=1,
+        content_size=10,
     )
     sf_base_url = "https://example.com"
     mock_sf = Mock()
@@ -40,6 +47,27 @@ def test_download_content_version():
 
     expected_calls = call._call_salesforce(
         url="{base}/sobjects/ContentVersion/{id}/VersionData".format(base=sf_base_url, id=content_version.id),
+        method="GET",
+        headers={"Content-Type": "application/octet-stream"},
+        stream=True,
+    ).call_list()
+
+    assert mock_sf.mock_calls == expected_calls
+
+
+def test_download_attachment():
+    attachment = Attachment(attachment_id="ID", parent_id="PID", content_size=10, name="Name")
+    sf_base_url = "https://example.com"
+    mock_sf = Mock()
+    mock_sf.base_url = sf_base_url
+    expected_result = Response()
+    mock_sf._call_salesforce.return_value = expected_result
+    client = SalesforceApiClient(sf_client=mock_sf)
+
+    assert client.download_attachment(attachment=attachment) == expected_result
+
+    expected_calls = call._call_salesforce(
+        url="{base}/sobjects/Attachment/{id}/body".format(base=sf_base_url, id=attachment.id),
         method="GET",
         headers={"Content-Type": "application/octet-stream"},
         stream=True,

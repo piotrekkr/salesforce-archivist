@@ -5,14 +5,18 @@ from typing import Any, Dict
 import click
 import humanize
 from pydantic import BaseModel, Field, field_validator, ValidationInfo, computed_field
-from typing import Optional
-from typing_extensions import Annotated
+from typing import Optional, Annotated
 from simple_salesforce import Salesforce as SalesforceClient
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
-from salesforce_archivist.salesforce.download import DownloadContentVersionList, DownloadedContentVersionList
+from salesforce_archivist.salesforce.download import (
+    DownloadContentVersionList,
+    DownloadedList,
+    DownloadAttachmentList,
+    DownloadStats,
+)
 from salesforce_archivist.salesforce.salesforce import Salesforce
-from salesforce_archivist.salesforce.validation import ValidatedContentVersionList
+from salesforce_archivist.salesforce.validation import ValidatedList, ValidationStats
 
 
 class ArchivistObject(BaseModel):
@@ -87,96 +91,156 @@ class Archivist:
         self._max_workers = max_workers
 
     def download(self) -> bool:
-        downloaded_content_versions_list = DownloadedContentVersionList(self._data_dir)
+        downloaded_content_versions_list = DownloadedList(self._data_dir, "downloaded_versions.csv")
         if downloaded_content_versions_list.data_file_exist():
             downloaded_content_versions_list.load_data_from_file()
 
-        global_stats = {
-            "total": 0,
-            "processed": 0,
-            "errors": 0,
-            "size": 0,
-        }
+        downloaded_attachment_list = DownloadedList(self._data_dir, "downloaded_attachments.csv")
+        if downloaded_attachment_list.data_file_exist():
+            downloaded_attachment_list.load_data_from_file()
+
+        global_stats = DownloadStats()
         for archivist_obj in self._objects.values():
             obj_type = archivist_obj.obj_type
-            salesforce = Salesforce(
-                archivist_obj=archivist_obj,
-                client=SalesforceApiClient(self._sf_client),
-                max_api_usage_percent=self._max_api_usage_percent,
-            )
-            self._print_msg(msg="Downloading document link list.", obj_type=obj_type)
-            document_link_list = salesforce.load_content_document_link_list()
-            self._print_msg(msg="Done.", obj_type=obj_type)
-            self._print_msg(msg="Downloading content version list.", obj_type=obj_type)
-            content_version_list = salesforce.load_content_version_list(document_link_list=document_link_list)
-            self._print_msg(msg="Done.", obj_type=obj_type)
-            self._print_msg(msg="Downloading files.", obj_type=obj_type)
-            download_list = DownloadContentVersionList(
-                document_link_list=document_link_list,
-                content_version_list=content_version_list,
-                data_dir=archivist_obj.obj_dir,
-            )
-            stats = salesforce.download_files(
-                download_content_version_list=download_list,
-                downloaded_content_version_list=downloaded_content_versions_list,
-                max_workers=self._max_workers,
-            )
-            global_stats["total"] += stats.total
-            global_stats["processed"] += stats.processed
-            global_stats["errors"] += stats.errors
-            global_stats["size"] += stats.size
+            if obj_type == "Attachment":
+                self._download_attachments(archivist_obj, downloaded_attachment_list, global_stats)
+            else:
+                self._download_files(archivist_obj, downloaded_content_versions_list, global_stats)
 
-        status = "SUCCESS" if global_stats["errors"] == 0 else "FAILED"
-        color = "green" if global_stats["errors"] == 0 else "red"
+        status = "SUCCESS" if global_stats.errors == 0 else "FAILED"
+        color = "green" if global_stats.errors == 0 else "red"
         click.secho(
             "[{status}] Download finished. Processed {processed}/{total} ({processed_size}), {errors} errors.".format(
-                status=status, processed_size=humanize.naturalsize(global_stats["size"], binary=True), **global_stats
+                status=status,
+                processed=global_stats.processed,
+                processed_size=humanize.naturalsize(global_stats.size, binary=True),
+                errors=global_stats.errors,
+                total=global_stats.total,
             ),
             fg=color,
         )
-        return global_stats["errors"] == 0
+        return global_stats.errors == 0
+
+    def _download_files(
+        self,
+        archivist_obj: ArchivistObject,
+        downloaded_list: DownloadedList,
+        global_stats: DownloadStats,
+    ) -> None:
+        obj_type = archivist_obj.obj_type
+        salesforce = Salesforce(
+            archivist_obj=archivist_obj,
+            client=SalesforceApiClient(self._sf_client),
+            max_api_usage_percent=self._max_api_usage_percent,
+        )
+        self._print_msg(msg="Downloading document link list.", obj_type=obj_type)
+        document_link_list = salesforce.load_content_document_link_list()
+        self._print_msg(msg="Done.", obj_type=obj_type)
+        self._print_msg(msg="Downloading content version list.", obj_type=obj_type)
+        content_version_list = salesforce.load_content_version_list(document_link_list=document_link_list)
+        self._print_msg(msg="Done.", obj_type=obj_type)
+        self._print_msg(msg="Downloading files.", obj_type=obj_type)
+        download_list = DownloadContentVersionList(
+            document_link_list=document_link_list,
+            content_version_list=content_version_list,
+            data_dir=archivist_obj.obj_dir,
+        )
+        stats = salesforce.download_files(
+            download_list=download_list,
+            downloaded_list=downloaded_list,
+            max_workers=self._max_workers,
+        )
+        global_stats.combine(stats)
+
+    def _download_attachments(
+        self, archivist_obj: ArchivistObject, downloaded_list: DownloadedList, global_stats: DownloadStats
+    ) -> None:
+        obj_type = archivist_obj.obj_type
+        salesforce = Salesforce(
+            archivist_obj=archivist_obj,
+            client=SalesforceApiClient(self._sf_client),
+            max_api_usage_percent=self._max_api_usage_percent,
+        )
+        self._print_msg(msg="Downloading attachment list.", obj_type=obj_type)
+        attachment_list = salesforce.load_attachment_list()
+        self._print_msg(msg="Done.", obj_type=obj_type)
+        self._print_msg(msg="Downloading files.", obj_type=obj_type)
+        download_list = DownloadAttachmentList(
+            attachment_list=attachment_list,
+            data_dir=archivist_obj.obj_dir,
+        )
+        stats = salesforce.download_files(
+            download_list=download_list,
+            downloaded_list=downloaded_list,
+            max_workers=self._max_workers,
+        )
+        global_stats.combine(stats)
+
+    def _validate_content_versions_download(
+        self, archivist_obj: ArchivistObject, validated_list: ValidatedList, global_stats: ValidationStats
+    ) -> bool:
+        salesforce = Salesforce(
+            archivist_obj=archivist_obj,
+            client=SalesforceApiClient(self._sf_client),
+            max_api_usage_percent=self._max_api_usage_percent,
+        )
+        document_link_list = salesforce.load_content_document_link_list()
+        content_version_list = salesforce.load_content_version_list(
+            document_link_list=document_link_list,
+        )
+        download_list = DownloadContentVersionList(
+            document_link_list=document_link_list,
+            content_version_list=content_version_list,
+            data_dir=archivist_obj.obj_dir,
+        )
+        stats = salesforce.validate_download(
+            download_list=download_list,
+            validated_list=validated_list,
+            max_workers=self._max_workers,
+        )
+        global_stats.combine(stats)
+        return stats.invalid == 0
+
+    def _validate_attachments_download(
+        self, archivist_obj: ArchivistObject, validated_list: ValidatedList, global_stats: ValidationStats
+    ) -> bool:
+        salesforce = Salesforce(
+            archivist_obj=archivist_obj,
+            client=SalesforceApiClient(self._sf_client),
+            max_api_usage_percent=self._max_api_usage_percent,
+        )
+        attachment_list = salesforce.load_attachment_list()
+        download_list = DownloadAttachmentList(
+            attachment_list=attachment_list,
+            data_dir=archivist_obj.obj_dir,
+        )
+        stats = salesforce.validate_download(
+            download_list=download_list,
+            validated_list=validated_list,
+            max_workers=self._max_workers,
+        )
+        global_stats.combine(stats)
+        return stats.invalid == 0
 
     def validate(self) -> bool:
-        validated_versions_list = ValidatedContentVersionList(self._data_dir)
-        if validated_versions_list.data_file_exist():
-            validated_versions_list.load_data_from_file()
-        global_stats = {
-            "total": 0,
-            "processed": 0,
-            "invalid": 0,
-        }
+        validated_list = ValidatedList(self._data_dir)
+        if validated_list.data_file_exist():
+            validated_list.load_data_from_file()
+        global_stats = ValidationStats()
         for archivist_obj in self._objects.values():
-            salesforce = Salesforce(
-                archivist_obj=archivist_obj,
-                client=SalesforceApiClient(self._sf_client),
-                max_api_usage_percent=self._max_api_usage_percent,
-            )
-            document_link_list = salesforce.load_content_document_link_list()
-            content_version_list = salesforce.load_content_version_list(
-                document_link_list=document_link_list,
-            )
-            download_list = DownloadContentVersionList(
-                document_link_list=document_link_list,
-                content_version_list=content_version_list,
-                data_dir=archivist_obj.obj_dir,
-            )
-            stats = salesforce.validate_download(
-                download_content_version_list=download_list,
-                validated_content_version_list=validated_versions_list,
-                max_workers=self._max_workers,
-            )
-            global_stats["total"] += stats.total
-            global_stats["processed"] += stats.processed
-            global_stats["invalid"] += stats.invalid
-        status = "SUCCESS" if global_stats["invalid"] == 0 else "FAILED"
-        color = "green" if global_stats["invalid"] == 0 else "red"
+            if archivist_obj.obj_type == "Attachment":
+                self._validate_attachments_download(archivist_obj, validated_list, global_stats)
+            else:
+                self._validate_content_versions_download(archivist_obj, validated_list, global_stats)
+        status = "SUCCESS" if global_stats.invalid == 0 else "FAILED"
+        color = "green" if global_stats.invalid == 0 else "red"
         click.secho(
             "[{status}] Download validation finished. Processed {processed}/{total}, {invalid} errors.".format(
-                status=status, **global_stats
+                status=status, processed=global_stats.processed, invalid=global_stats.invalid, total=global_stats.total
             ),
             fg=color,
         )
-        return global_stats["invalid"] == 0
+        return global_stats.invalid == 0
 
     @staticmethod
     def _print_msg(msg: str, obj_type: str, fg: str | None = None) -> None:

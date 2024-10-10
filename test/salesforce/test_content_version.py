@@ -22,7 +22,7 @@ def test_content_version_properties():
         10,
     )
     version = ContentVersion(
-        id=vid,
+        version_id=vid,
         document_id=did,
         title=title,
         extension=ext,
@@ -47,7 +47,7 @@ def test_content_version_properties():
 def test_content_version_equality():
     vid, did, title, ext, checksum, version_number, content_size = ("ID", "DOC_ID", "TITLE", "test", "CHECKSUM", 1, 10)
     version1 = ContentVersion(
-        id=vid,
+        version_id=vid,
         document_id=did,
         title=title,
         extension=ext,
@@ -56,7 +56,7 @@ def test_content_version_equality():
         content_size=content_size,
     )
     version2 = ContentVersion(
-        id=vid,
+        version_id=vid,
         document_id=did,
         title=title,
         extension=ext,
@@ -107,7 +107,7 @@ def test_content_version_list_load_data_from_file(csv_data):
                 expected_calls.append(
                     call(
                         version=ContentVersion(
-                            id=row[0],
+                            version_id=row[0],
                             document_id=row[1],
                             checksum=row[2],
                             title=row[3],
@@ -125,7 +125,7 @@ def test_content_version_list_save():
         version_list = ContentVersionList(data_dir=tmp_dir)
         to_save = [
             ContentVersion(
-                id="id1",
+                version_id="id1",
                 document_id="did1",
                 checksum="sum1",
                 title="title1",
@@ -134,7 +134,7 @@ def test_content_version_list_save():
                 content_size=10,
             ),
             ContentVersion(
-                id="id2",
+                version_id="id2",
                 document_id="did2",
                 checksum="sum2",
                 title="title2",
@@ -156,7 +156,7 @@ def test_content_version_list_save():
 def test_content_version_list_get_content_version():
     version_list = ContentVersionList(data_dir="/fake/dir")
     version = ContentVersion(
-        id="id1",
+        version_id="id1",
         document_id="did1",
         checksum="sum1",
         title="title1",
@@ -172,7 +172,7 @@ def test_content_version_list_get_content_version():
 def test_content_version_list_add_version():
     version_list = ContentVersionList(data_dir="/fake/dir")
     version = ContentVersion(
-        id="id1",
+        version_id="id1",
         document_id="did1",
         checksum="sum1",
         title="title1",
@@ -187,7 +187,7 @@ def test_content_version_list_add_version():
 def test_content_version_list_add_version_does_not_add_duplicates():
     version_list = ContentVersionList(data_dir="/fake/dir")
     version = ContentVersion(
-        id="id1",
+        version_id="id1",
         document_id="did1",
         checksum="sum1",
         title="title1",
@@ -206,7 +206,7 @@ def test_content_version_list_add_version_does_not_add_duplicates():
 def test_content_version_list_get_content_versions_for_link():
     version_list = ContentVersionList(data_dir="/fake/dir")
     version1 = ContentVersion(
-        id="id1",
+        version_id="id1",
         document_id="did1",
         checksum="sum1",
         title="title1",
@@ -215,7 +215,7 @@ def test_content_version_list_get_content_versions_for_link():
         content_size=10,
     )
     version2 = ContentVersion(
-        id="id2",
+        version_id="id2",
         document_id="did2",
         checksum="sum2",
         title="title2",
@@ -235,7 +235,7 @@ def test_content_version_list_get_content_versions_for_link():
 def test_content_version_list_len():
     version_list = ContentVersionList(data_dir="/fake/dir")
     version1 = ContentVersion(
-        id="id1",
+        version_id="id1",
         document_id="did1",
         checksum="sum1",
         title="title1",
@@ -244,7 +244,7 @@ def test_content_version_list_len():
         content_size=10,
     )
     version2 = ContentVersion(
-        id="id2",
+        version_id="id2",
         document_id="did2",
         checksum="sum2",
         title="title2",
