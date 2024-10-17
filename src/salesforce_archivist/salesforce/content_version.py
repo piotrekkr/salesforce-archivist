@@ -9,7 +9,7 @@ from salesforce_archivist.salesforce.content_document_link import ContentDocumen
 class ContentVersion:
     def __init__(
         self,
-        id: str,
+        version_id: str,
         document_id: str,
         title: str,
         extension: str,
@@ -17,7 +17,7 @@ class ContentVersion:
         version_number: int,
         content_size: int,
     ):
-        self._id = id
+        self._id = version_id
         self._document_id = document_id
         self._title = title
         self._extension = extension
@@ -101,7 +101,7 @@ class ContentVersionList:
             next(reader)
             for row in reader:
                 version = ContentVersion(
-                    id=row[0],
+                    version_id=row[0],
                     document_id=row[1],
                     checksum=row[2],
                     title=row[3],

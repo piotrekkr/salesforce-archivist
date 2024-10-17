@@ -4,21 +4,23 @@ import csv
 import glob
 import os.path
 from math import ceil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from salesforce_archivist.salesforce.api import SalesforceApiClient
+from salesforce_archivist.salesforce.attachment import AttachmentList, Attachment
 from salesforce_archivist.salesforce.content_document_link import ContentDocumentLink, ContentDocumentLinkList
 from salesforce_archivist.salesforce.content_version import ContentVersion, ContentVersionList
 from salesforce_archivist.salesforce.download import (
-    ContentVersionDownloader,
+    Downloader,
     DownloadContentVersionList,
-    DownloadedContentVersionList,
+    DownloadedList,
     DownloadStats,
+    DownloadAttachmentList,
 )
 from salesforce_archivist.salesforce.validation import (
-    ContentVersionDownloadValidator,
-    ValidatedContentVersionList,
     ValidationStats,
+    DownloadValidator,
+    ValidatedList,
 )
 
 if TYPE_CHECKING:
@@ -160,7 +162,7 @@ class Salesforce:
                 next(reader)
                 for row in reader:
                     version = ContentVersion(
-                        id=row[0],
+                        version_id=row[0],
                         document_id=row[1],
                         checksum=row[2],
                         title=row[3],
@@ -170,34 +172,87 @@ class Salesforce:
                     )
                     content_version_list.add_version(version)
 
+    def _get_attachment_list_query(self) -> str:
+        select_list = ["Id", "ParentId", "BodyLength", "Name"]
+        where_conditions = []
+        if self._archivist_obj.modified_date_lt is not None:
+            where_conditions.append(
+                "LastModifiedDate < {date}".format(
+                    date=self._archivist_obj.modified_date_lt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                )
+            )
+        if self._archivist_obj.modified_date_gt is not None:
+            where_conditions.append(
+                "LastModifiedDate > {date}".format(
+                    date=self._archivist_obj.modified_date_gt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                )
+            )
+        where = ""
+        if len(where_conditions):
+            where = "WHERE {}".format(" AND ".join(where_conditions))
+
+        return "SELECT {fields} FROM Attachment {where}".format(fields=", ".join(select_list), where=where).rstrip(" ")
+
+    def download_attachment_list(
+        self,
+        attachment_list: AttachmentList,
+        max_records: int = 50000,
+    ) -> None:
+        tmp_dir = self._init_tmp_dir()
+        query = self._get_attachment_list_query()
+
+        self._client.bulk2(query=query, path=tmp_dir, max_records=max_records)
+
+        for path in glob.glob(os.path.join(tmp_dir, "*.csv")):
+            with open(path) as file:
+                reader = csv.reader(file)
+                next(reader)
+                for row in reader:
+                    attachment = Attachment(
+                        attachment_id=row[0],
+                        parent_id=row[1],
+                        content_size=int(row[2]),
+                        name=row[3],
+                    )
+                    attachment_list.add_attachment(attachment)
+
+    def load_attachment_list(self) -> AttachmentList:
+        attachment_list = AttachmentList(data_dir=self._archivist_obj.obj_dir)
+        if not attachment_list.data_file_exist():
+            self.download_attachment_list(attachment_list=attachment_list)
+            attachment_list.save()
+        else:
+            attachment_list.load_data_from_file()
+
+        return attachment_list
+
     def download_files(
         self,
-        download_content_version_list: DownloadContentVersionList,
-        downloaded_content_version_list: DownloadedContentVersionList,
+        downloaded_list: DownloadedList,
+        download_list: Union[DownloadContentVersionList, DownloadAttachmentList],
         max_workers: int | None = None,
     ) -> DownloadStats:
         try:
-            downloader = ContentVersionDownloader(
+            downloader = Downloader(
                 sf_client=self._client,
-                downloaded_version_list=downloaded_content_version_list,
                 max_api_usage_percent=self._max_api_usage_percent,
                 max_workers=max_workers,
             )
-            return downloader.download(download_list=download_content_version_list)
+            return downloader.download(downloaded_list=downloaded_list, download_list=download_list)
         finally:
-            downloaded_content_version_list.save()
+            downloaded_list.save()
 
     @staticmethod
     def validate_download(
-        download_content_version_list: DownloadContentVersionList,
-        validated_content_version_list: ValidatedContentVersionList,
+        download_list: Union[DownloadContentVersionList, DownloadAttachmentList],
+        validated_list: ValidatedList,
         max_workers: int | None = None,
     ) -> ValidationStats:
         try:
-            validator = ContentVersionDownloadValidator(
-                validated_content_version_list=validated_content_version_list,
+            validator = DownloadValidator(
+                validated_list=validated_list,
                 max_workers=max_workers,
             )
-            return validator.validate(download_list=download_content_version_list)
+            return validator.validate(download_list=download_list)
         finally:
-            validated_content_version_list.save()
+            validated_list.save()

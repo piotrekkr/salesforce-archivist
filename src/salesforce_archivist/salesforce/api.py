@@ -2,6 +2,7 @@ from requests import Response
 from simple_salesforce import Salesforce as SimpleSFClient
 from simple_salesforce.api import Usage
 
+from salesforce_archivist.salesforce.attachment import Attachment
 from salesforce_archivist.salesforce.content_version import ContentVersion
 
 
@@ -38,6 +39,15 @@ class SalesforceApiClient:
             url="{base}/sobjects/ContentVersion/{id}/VersionData".format(
                 base=self._simple_sf_client.base_url, id=version.id
             ),
+            method="GET",
+            headers={"Content-Type": "application/octet-stream"},
+            stream=True,
+        )
+        return result
+
+    def download_attachment(self, attachment: Attachment) -> Response:
+        result: Response = self._simple_sf_client._call_salesforce(
+            url="{base}/sobjects/Attachment/{id}/body".format(base=self._simple_sf_client.base_url, id=attachment.id),
             method="GET",
             headers={"Content-Type": "application/octet-stream"},
             stream=True,

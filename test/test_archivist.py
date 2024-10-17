@@ -9,9 +9,9 @@ import yaml
 from pydantic import ValidationError
 
 from salesforce_archivist.archivist import ArchivistObject, ArchivistAuth, ArchivistConfig, Archivist
-from salesforce_archivist.salesforce.download import DownloadedContentVersionList, DownloadStats
+from salesforce_archivist.salesforce.download import DownloadedList, DownloadStats
 from salesforce_archivist.salesforce.salesforce import Salesforce
-from salesforce_archivist.salesforce.validation import ValidatedContentVersionList, ValidationStats
+from salesforce_archivist.salesforce.validation import ValidationStats, ValidatedList
 
 
 @pytest.mark.parametrize(
@@ -215,41 +215,45 @@ def test_archivist_config_props():
         )
 
 
-@patch.object(DownloadedContentVersionList, "data_file_exist", side_effect=[False, True])
-@patch.object(DownloadedContentVersionList, "load_data_from_file")
+@patch.object(DownloadedList, "data_file_exist", side_effect=[False, False, True, True])
+@patch.object(DownloadedList, "load_data_from_file")
 def test_archivist_download_will_load_downloaded_list_if_possible(load_mock, exist_mock):
     archivist = Archivist(data_dir="/fake/dir", objects={}, sf_client=MagicMock())
     archivist.download()
-    exist_mock.assert_called_once()
+    assert exist_mock.call_count == 2
     load_mock.assert_not_called()
     archivist.download()
-    assert exist_mock.call_count == 2
-    load_mock.assert_called_once()
+    assert exist_mock.call_count == 4
+    assert load_mock.call_count == 2
 
 
+@patch.object(Salesforce, "load_attachment_list")
 @patch.object(Salesforce, "load_content_document_link_list")
 @patch.object(Salesforce, "load_content_version_list")
 @patch.object(Salesforce, "download_files")
 def test_archivist_download_will_load_lists_and_call_download_method(
-    download_mock, load_version_list_mock, load_doc_link_list_mock
+    download_mock, load_version_list_mock, load_doc_link_list_mock, load_attachment_list_mock
 ):
     download_mock.return_value = DownloadStats()
     objects = {
-        "User": ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
-        "Email": ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
+        "User": ArchivistObject(data_dir="/fake/dir", obj_type="User"),
+        "Email": ArchivistObject(data_dir="/fake/dir", obj_type="Email"),
+        "Attachment": ArchivistObject(data_dir="/fake/dir", obj_type="Attachment"),
     }
     archivist = Archivist(data_dir="/fake/dir", objects=objects, sf_client=MagicMock())
     archivist.download()
     assert load_doc_link_list_mock.call_count == 2
     assert load_version_list_mock.call_count == 2
-    assert download_mock.call_count == 2
+    assert load_attachment_list_mock.call_count == 1
+    assert download_mock.call_count == 3
 
 
+@patch.object(Salesforce, "load_attachment_list")
 @patch.object(Salesforce, "load_content_document_link_list")
 @patch.object(Salesforce, "load_content_version_list")
 @patch.object(Salesforce, "download_files")
 def test_archivist_download_will_return_correct_bool_value(
-    download_mock, load_version_list_mock, load_doc_link_list_mock
+    download_mock, load_version_list_mock, load_doc_link_list_mock, load_attachment_list_mock
 ):
     stats_error = DownloadStats()
     stats_error.initialize(total=1)
@@ -260,15 +264,16 @@ def test_archivist_download_will_return_correct_bool_value(
         archivist = Archivist(
             data_dir="/fake/dir",
             objects={
-                "User": ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
+                "User": ArchivistObject(data_dir="/fake/dir", obj_type="User"),
+                "Attachment": ArchivistObject(data_dir="/fake/dir", obj_type="Attachment"),
             },
             sf_client=MagicMock(),
         )
         assert archivist.download() == expected_return
 
 
-@patch.object(ValidatedContentVersionList, "data_file_exist", side_effect=[False, True])
-@patch.object(ValidatedContentVersionList, "load_data_from_file")
+@patch.object(ValidatedList, "data_file_exist", side_effect=[False, True])
+@patch.object(ValidatedList, "load_data_from_file")
 def test_archivist_validate_will_load_validated_list_if_possible(load_mock, exist_mock):
     archivist = Archivist(data_dir="/fake/dir", objects={}, sf_client=MagicMock())
     archivist.validate()
@@ -279,23 +284,27 @@ def test_archivist_validate_will_load_validated_list_if_possible(load_mock, exis
     load_mock.assert_called_once()
 
 
+@patch.object(Salesforce, "load_attachment_list")
 @patch.object(Salesforce, "load_content_document_link_list")
 @patch.object(Salesforce, "load_content_version_list")
 @patch.object(Salesforce, "validate_download")
 def test_archivist_validate_will_load_lists_and_call_validate_method(
-    validate_mock, load_version_list_mock, load_doc_link_list_mock
+    validate_mock, load_version_list_mock, load_doc_link_list_mock, load_attachment_list_mock
 ):
     validate_mock.return_value = ValidationStats()
     objects = {
-        "User": ArchivistObject(data_dir="/fakse/dir", obj_type="User"),
-        "Email": ArchivistObject(data_dir="/fakse/dir", obj_type="Email"),
+        "User": ArchivistObject(data_dir="/fake/dir", obj_type="User"),
+        "Email": ArchivistObject(data_dir="/fake/dir", obj_type="Email"),
+        "Attachment": ArchivistObject(data_dir="/fake/dir", obj_type="Attachment"),
     }
     max_workers = 6
     archivist = Archivist(data_dir="/fake/dir", objects=objects, sf_client=MagicMock(), max_workers=max_workers)
     archivist.validate()
     assert load_doc_link_list_mock.call_count == 2
     assert load_version_list_mock.call_count == 2
+    assert load_attachment_list_mock.call_count == 1
     assert validate_mock.mock_calls == [
-        call(download_content_version_list=ANY, validated_content_version_list=ANY, max_workers=max_workers),
-        call(download_content_version_list=ANY, validated_content_version_list=ANY, max_workers=max_workers),
+        call(download_list=ANY, validated_list=ANY, max_workers=max_workers),
+        call(download_list=ANY, validated_list=ANY, max_workers=max_workers),
+        call(download_list=ANY, validated_list=ANY, max_workers=max_workers),
     ]
