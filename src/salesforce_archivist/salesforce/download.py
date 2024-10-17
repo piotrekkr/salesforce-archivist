@@ -206,78 +206,55 @@ class Downloader:
         self._stop_event = threading.Event()
         self._max_workers = max_workers
 
-    def _download_content_version_from_sf(
-        self, downloaded_versions_list: DownloadedList, version: ContentVersion, download_path: str
+    def _download_file_from_sf_api(
+        self, downloaded_list: DownloadedList, download_obj: Union[ContentVersion, Attachment], download_path: str
     ) -> None:
-        downloaded_version = downloaded_versions_list.get(version)
+        pass
+
+    def download_file_from_sf(
+        self,
+        downloaded_list: DownloadedList,
+        download_obj: Union[ContentVersion, Attachment],
+        download_path: str,
+    ) -> None:
+        downloaded_file = downloaded_list.get(download_obj)
         # file exist under the path that we want to download into
         if os.path.exists(download_path):
-            # if no version exist in downloaded list add a new downloaded version with this path
-            if downloaded_version is None:
-                downloaded_version = DownloadedSalesforceObject(
-                    obj_id=version.id,
+            # if no file exist in downloaded list add a new downloaded version with this path
+            if downloaded_file is None:
+                downloaded_file = DownloadedSalesforceObject(
+                    obj_id=download_obj.id,
                     path=download_path,
                 )
-                downloaded_versions_list.add(downloaded_version)
+                downloaded_list.add(downloaded_file)
 
-        # version is on downloaded list and version points to existing file on disk
-        elif downloaded_version is not None and os.path.exists(downloaded_version.path):
-            # copy existing file if download path is different from already downloaded version path in the list
-            if downloaded_version.path != download_path:
+        # file is on downloaded list and it points to existing file on disk
+        elif downloaded_file is not None and os.path.exists(downloaded_file.path):
+            # copy existing file if download path is different from already downloaded path in the list
+            if downloaded_file.path != download_path:
                 os.makedirs(os.path.dirname(download_path), exist_ok=True)
-                shutil.copy(downloaded_version.path, download_path)
+                shutil.copy(downloaded_file.path, download_path)
 
-        # download version using SF API and add to the list
+        # download file using SF API and add to the list
         else:
-            result = self._client.download_content_version(version)
+            if isinstance(download_obj, ContentVersion):
+                result = self._client.download_content_version(download_obj)
+            elif isinstance(download_obj, Attachment):
+                result = self._client.download_attachment(download_obj)
+            else:
+                raise ValueError("Unknown object type provided {type}".format(type=type(download_obj)))
+
             os.makedirs(os.path.dirname(download_path), exist_ok=True)
             with open(download_path, "wb") as file:
                 for chunk in result.iter_content(chunk_size=1024):
                     if chunk:
                         file.write(chunk)
 
-            downloaded_version = DownloadedSalesforceObject(
-                obj_id=version.id,
+            downloaded_file = DownloadedSalesforceObject(
+                obj_id=download_obj.id,
                 path=download_path,
             )
-            downloaded_versions_list.add(downloaded_version)
-
-    def _download_attachment_from_sf(
-        self, downloaded_attachment_list: DownloadedList, attachment: Attachment, download_path: str
-    ) -> None:
-        result = self._client.download_attachment(attachment)
-        os.makedirs(os.path.dirname(download_path), exist_ok=True)
-        with open(download_path, "wb") as file:
-            for chunk in result.iter_content(chunk_size=1024):
-                if chunk:
-                    file.write(chunk)
-
-        downloaded_attachment = DownloadedSalesforceObject(
-            obj_id=attachment.id,
-            path=download_path,
-        )
-        downloaded_attachment_list.add(downloaded_attachment)
-
-    def download_from_sf(
-        self,
-        downloaded_list: DownloadedList,
-        download_obj: Union[ContentVersion, Attachment],
-        download_path: str,
-    ) -> None:
-        if isinstance(download_obj, ContentVersion):
-            self._download_content_version_from_sf(
-                downloaded_versions_list=downloaded_list,
-                version=download_obj,
-                download_path=download_path,
-            )
-        elif isinstance(download_obj, Attachment):
-            self._download_attachment_from_sf(
-                downloaded_attachment_list=downloaded_list,
-                attachment=download_obj,
-                download_path=download_path,
-            )
-        else:
-            raise ValueError("Unknown object type provided {type}".format(type=type(download_obj)))
+            downloaded_list.add(downloaded_file)
 
     def _print_download_msg(self, msg: str, error: bool = False) -> None:
         try:
@@ -313,7 +290,7 @@ class Downloader:
         error = False
         try:
             self._wait_if_api_usage_limit()
-            self.download_from_sf(
+            self.download_file_from_sf(
                 downloaded_list=downloaded_list, download_obj=download_obj, download_path=download_path
             )
         except StopDownloadException:
