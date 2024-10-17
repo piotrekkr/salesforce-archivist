@@ -288,7 +288,7 @@ def test_downloader_download_will_gracefully_shutdown(shutdown_mock, submit_mock
     shutdown_mock.assert_has_calls([call(wait=True), call(wait=True, cancel_futures=True)])
 
 
-@patch.object(Downloader, "download_from_sf", side_effect=RuntimeError)
+@patch.object(Downloader, "download_file_from_sf", side_effect=RuntimeError)
 def test_downloader_download_will_return_download_stats(download_mock):
     archivist_obj = ArchivistObject(data_dir="/fake/dir", obj_type="User")
     link_list = ContentDocumentLinkList(data_dir=archivist_obj.obj_dir)
@@ -323,7 +323,7 @@ def test_downloader_download_will_return_download_stats(download_mock):
 
 
 @patch("os.path.exists")
-def test_downloader_download_from_sf_will_add_already_downloaded_object_to_list(
+def test_downloader_download_file_from_sf_will_add_already_downloaded_object_to_list(
     exist_mock,
 ):
     exist_mock.return_value = True
@@ -337,25 +337,32 @@ def test_downloader_download_from_sf_will_add_already_downloaded_object_to_list(
         version_number=1,
         content_size=10,
     )
+    attachment = Attachment(attachment_id="ID", parent_id="PID", content_size=10, name="Name")
     downloaded_list = DownloadedList(data_dir=archivist_obj.obj_dir, file_name="downloaded_versions.csv")
     sf_client = Mock()
     downloader = Downloader(
         sf_client=sf_client,
     )
-    downloader.download_from_sf(downloaded_list=downloaded_list, download_obj=version, download_path="/fake/path")
-    exist_mock.assert_called_once()
-    assert len(downloaded_list) == 1
+    downloader.download_file_from_sf(downloaded_list=downloaded_list, download_obj=version, download_path="/fake/path")
+    downloader.download_file_from_sf(
+        downloaded_list=downloaded_list, download_obj=attachment, download_path="/fake/path"
+    )
+    assert exist_mock.call_count == 2
+    assert len(downloaded_list) == 2
     assert downloaded_list.get(obj=version).id == version.id
+    assert downloaded_list.get(obj=attachment).id == attachment.id
+    assert sf_client.download_attachment.call_count == 0
+    assert sf_client.download_content_version.call_count == 0
 
 
-def test_downloader_download_from_sf_will_copy_existing_file_to_new_path():
+def test_downloader_download_file_from_sf_will_copy_existing_file_to_new_path():
     with tempfile.TemporaryDirectory() as tmp_dir:
         archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
 
         already_downloaded_path = os.path.join(archivist_obj.obj_dir, "files", "file1.txt")
         to_download_path = os.path.join(archivist_obj.obj_dir, "files", "file2.txt")
         download_list_mock = MagicMock()
-        version1 = ContentVersion(
+        obj1 = ContentVersion(
             version_id="CID",
             document_id="DOC1",
             checksum="c",
@@ -364,7 +371,7 @@ def test_downloader_download_from_sf_will_copy_existing_file_to_new_path():
             version_number=1,
             content_size=10,
         )
-        version2 = ContentVersion(
+        obj2 = ContentVersion(
             version_id="CID",
             document_id="DOC2",
             checksum="c",
@@ -374,38 +381,38 @@ def test_downloader_download_from_sf_will_copy_existing_file_to_new_path():
             content_size=10,
         )
         download_list_mock.__iter__.return_value = [
-            (version1, already_downloaded_path),
-            (version2, to_download_path),
+            (obj1, already_downloaded_path),
+            (obj2, to_download_path),
         ]
         os.makedirs(os.path.dirname(already_downloaded_path), exist_ok=True)
         file_contents = b"test"
         with open(already_downloaded_path, "wb") as downloaded_file:
             downloaded_file.write(file_contents)
 
-        downloaded_version_list = DownloadedList(data_dir=archivist_obj.obj_dir, file_name="downloaded_versions.csv")
-        downloaded_version = DownloadedSalesforceObject(
-            obj_id=version1.id,
+        downloaded_list = DownloadedList(data_dir=archivist_obj.obj_dir, file_name="downloaded_versions.csv")
+        downloaded_obj = DownloadedSalesforceObject(
+            obj_id=obj1.id,
             path=already_downloaded_path,
         )
-        downloaded_version_list.add(downloaded_version)
+        downloaded_list.add(downloaded_obj)
         sf_client = Mock()
         downloader = Downloader(
             sf_client=sf_client,
         )
-        downloader.download_from_sf(
-            download_obj=version2,
+        downloader.download_file_from_sf(
+            download_obj=obj2,
             download_path=to_download_path,
-            downloaded_list=downloaded_version_list,
+            downloaded_list=downloaded_list,
         )
         assert os.path.exists(to_download_path)
         with open(to_download_path, "rb") as new_file:
             assert new_file.read() == file_contents
 
 
-def test_downloader_download_from_sf_will_download_version_from_salesforce():
+def test_downloader_download_file_from_sf_will_download_version_from_salesforce():
     with tempfile.TemporaryDirectory() as tmp_dir:
         archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
-        version = ContentVersion(
+        obj = ContentVersion(
             version_id="VID1",
             document_id="DOC1",
             checksum="c1",
@@ -424,8 +431,8 @@ def test_downloader_download_from_sf_will_download_version_from_salesforce():
             sf_client=sf_client,
         )
         path = os.path.join(tmp_dir, "test.txt")
-        downloader.download_from_sf(
-            download_obj=version,
+        downloader.download_file_from_sf(
+            download_obj=obj,
             download_path=path,
             downloaded_list=downloaded_list,
         )
@@ -434,10 +441,10 @@ def test_downloader_download_from_sf_will_download_version_from_salesforce():
             assert file.read() == b"test"
 
 
-def test_downloader_download_from_sf_will_download_attachment_from_salesforce():
+def test_downloader_download_file_from_sf_will_download_attachment_from_salesforce():
     with tempfile.TemporaryDirectory() as tmp_dir:
-        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
-        attachment = Attachment(
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="Attachment")
+        obj = Attachment(
             attachment_id="ID",
             parent_id="PID",
             content_size=10,
@@ -453,8 +460,8 @@ def test_downloader_download_from_sf_will_download_attachment_from_salesforce():
             sf_client=sf_client,
         )
         path = os.path.join(tmp_dir, "test.txt")
-        downloader.download_from_sf(
-            download_obj=attachment,
+        downloader.download_file_from_sf(
+            download_obj=obj,
             download_path=path,
             downloaded_list=downloaded_list,
         )
@@ -477,7 +484,7 @@ def test_downloader_download_or_wait(sleep_mock):
     sf_client.get_api_usage.side_effect = lambda refresh=False: usage_side_effect(refresh=refresh)
     download_list_mock = MagicMock()
     download_list_mock.__iter__.return_value = []
-    with patch.object(Downloader, "download_from_sf"):
+    with patch.object(Downloader, "download_file_from_sf"):
         wait = 7
         downloader = Downloader(
             sf_client=sf_client,
