@@ -18,13 +18,15 @@ from salesforce_archivist.salesforce.validation import DownloadValidator
 
 
 @pytest.mark.parametrize(
-    "modified_date_lt, modified_date_gt, dir_name_field, expected_query",
+    "modified_date_lt, modified_date_gt, dir_name_field, extra_soql_condition, expected_query",
     [
         (
             None,
             None,
             None,
-            "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type FROM ContentDocumentLink WHERE ContentDocumentId IN (SELECT Id FROM ContentDocument )",
+            None,
+            "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type FROM ContentDocumentLink "
+            "WHERE LinkedEntityId IN (SELECT Id FROM User)",
         ),
         (
             datetime(
@@ -39,10 +41,14 @@ from salesforce_archivist.salesforce.validation import DownloadValidator
             ),
             None,
             None,
+            None,
             (
                 "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type "
                 "FROM ContentDocumentLink "
-                "WHERE ContentDocumentId IN (SELECT Id FROM ContentDocument WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z)"
+                "WHERE LinkedEntityId IN (SELECT Id FROM User) "
+                "AND ContentDocumentId IN ("
+                "SELECT Id FROM ContentDocument WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z"
+                ")"
             ),
         ),
         (
@@ -67,11 +73,16 @@ from salesforce_archivist.salesforce.validation import DownloadValidator
                 tzinfo=timezone.utc,
             ),
             None,
+            None,
             (
                 "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type "
                 "FROM ContentDocumentLink "
-                "WHERE ContentDocumentId IN ("
-                "SELECT Id FROM ContentDocument WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
+                "WHERE LinkedEntityId IN (SELECT Id FROM User) "
+                "AND ContentDocumentId IN ("
+                "SELECT Id "
+                "FROM ContentDocument "
+                "WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z "
+                "AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
                 ")"
             ),
         ),
@@ -97,11 +108,51 @@ from salesforce_archivist.salesforce.validation import DownloadValidator
                 tzinfo=timezone.utc,
             ),
             "DirField",
+            None,
             (
                 "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type, DirField "
                 "FROM ContentDocumentLink "
-                "WHERE ContentDocumentId IN ("
-                "SELECT Id FROM ContentDocument WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
+                "WHERE LinkedEntityId IN (SELECT Id FROM User) "
+                "AND ContentDocumentId IN ("
+                "SELECT Id "
+                "FROM ContentDocument "
+                "WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z "
+                "AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
+                ")"
+            ),
+        ),
+        (
+            datetime(
+                year=2024,
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+                tzinfo=timezone.utc,
+            ),
+            datetime(
+                year=2023,
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+                tzinfo=timezone.utc,
+            ),
+            "DirField",
+            "MyCustomField__c = 'MyValue'",
+            (
+                "SELECT LinkedEntityId, ContentDocumentId, LinkedEntity.Type, DirField "
+                "FROM ContentDocumentLink "
+                "WHERE LinkedEntityId IN (SELECT Id FROM User WHERE MyCustomField__c = 'MyValue') "
+                "AND ContentDocumentId IN ("
+                "SELECT Id "
+                "FROM ContentDocument "
+                "WHERE ContentDocument.ContentModifiedDate < 2024-01-01T00:00:00Z "
+                "AND ContentDocument.ContentModifiedDate > 2023-01-01T00:00:00Z"
                 ")"
             ),
         ),
@@ -111,6 +162,7 @@ def test_download_content_document_link_list_queries(
     modified_date_lt: datetime | None,
     modified_date_gt: datetime | None,
     dir_name_field: str | None,
+    extra_soql_condition: str | None,
     expected_query: str,
 ):
     client = Mock()
@@ -123,6 +175,7 @@ def test_download_content_document_link_list_queries(
             modified_date_lt=modified_date_lt,
             modified_date_gt=modified_date_gt,
             dir_name_field=dir_name_field,
+            extra_soql_condition=extra_soql_condition,
         )
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         salesforce.download_content_document_link_list(
@@ -136,9 +189,10 @@ def test_download_content_document_link_list_queries(
 
 
 @pytest.mark.parametrize(
-    "modified_date_lt, modified_date_gt, expected_query",
+    "modified_date_lt, modified_date_gt, extra_soql_condition, expected_query",
     [
         (
+            None,
             None,
             None,
             "SELECT Id, ParentId, BodyLength, Name FROM Attachment",
@@ -154,6 +208,7 @@ def test_download_content_document_link_list_queries(
                 microsecond=0,
                 tzinfo=timezone.utc,
             ),
+            None,
             None,
             (
                 "SELECT Id, ParentId, BodyLength, Name "
@@ -182,10 +237,39 @@ def test_download_content_document_link_list_queries(
                 microsecond=0,
                 tzinfo=timezone.utc,
             ),
+            None,
             (
                 "SELECT Id, ParentId, BodyLength, Name "
                 "FROM Attachment "
                 "WHERE LastModifiedDate < 2024-01-01T00:00:00Z AND LastModifiedDate > 2023-01-01T00:00:00Z"
+            ),
+        ),
+        (
+            datetime(
+                year=2024,
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+                tzinfo=timezone.utc,
+            ),
+            datetime(
+                year=2023,
+                month=1,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+                tzinfo=timezone.utc,
+            ),
+            "MyCustomField__c = 'MyValue'",
+            (
+                "SELECT Id, ParentId, BodyLength, Name "
+                "FROM Attachment "
+                "WHERE LastModifiedDate < 2024-01-01T00:00:00Z AND LastModifiedDate > 2023-01-01T00:00:00Z AND MyCustomField__c = 'MyValue'"
             ),
         ),
     ],
@@ -193,6 +277,7 @@ def test_download_content_document_link_list_queries(
 def test_download_attachment_list_queries(
     modified_date_lt: datetime | None,
     modified_date_gt: datetime | None,
+    extra_soql_condition: str | None,
     expected_query: str,
 ):
     client = Mock()
@@ -204,6 +289,7 @@ def test_download_attachment_list_queries(
             obj_type="Attachment",
             modified_date_lt=modified_date_lt,
             modified_date_gt=modified_date_gt,
+            extra_soql_condition=extra_soql_condition,
         )
         salesforce = Salesforce(archivist_obj=archivist_obj, client=client, max_api_usage_percent=50)
         salesforce.download_attachment_list(

@@ -52,35 +52,36 @@ class Salesforce:
         select_list = ["LinkedEntityId", "ContentDocumentId", "LinkedEntity.Type"]
         if self._archivist_obj.dir_name_field is not None and self._archivist_obj.dir_name_field not in select_list:
             select_list.append(self._archivist_obj.dir_name_field)
-        where_conditions = []
+        where = []
+        linked_id_where = "LinkedEntityId IN (SELECT Id FROM {obj_type})".format(obj_type=self._archivist_obj.obj_type)
+        if self._archivist_obj.extra_soql_condition is not None:
+            linked_id_where = "LinkedEntityId IN (SELECT Id FROM {obj_type} WHERE {where})".format(
+                obj_type=self._archivist_obj.obj_type, where=self._archivist_obj.extra_soql_condition
+            )
+        where.append(linked_id_where)
+        doc_id_where = []
         if self._archivist_obj.modified_date_lt is not None:
-            where_conditions.append(
+            doc_id_where.append(
                 "ContentDocument.ContentModifiedDate < {date}".format(
                     date=self._archivist_obj.modified_date_lt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
         if self._archivist_obj.modified_date_gt is not None:
-            where_conditions.append(
+            doc_id_where.append(
                 "ContentDocument.ContentModifiedDate > {date}".format(
                     date=self._archivist_obj.modified_date_gt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
-        where = ""
-        if len(where_conditions):
-            where = "WHERE {}".format(" AND ".join(where_conditions))
+        if len(doc_id_where):
+            where.append(
+                "ContentDocumentId IN (SELECT Id FROM ContentDocument WHERE {where})".format(
+                    where=" AND ".join(doc_id_where)
+                )
+            )
 
-        # Using WHERE IN and not using filter on `LinkedEntity.Type` is done because of SF restrictions like:
-        #
-        #   Implementation restriction: ContentDocumentLink requires a filter by a single ID on ContentDocumentId
-        #   or LinkedEntityId using the equals operator or multiple ID's using the IN operator.
-        #
-        #   Implementation restriction: filtering on non-id fields is only permitted when filtering
-        #   by ContentDocumentLink.LinkedEntityId using the equal operator.
-
-        return (
-            "SELECT {fields} FROM ContentDocumentLink "
-            "WHERE ContentDocumentId IN (SELECT Id FROM ContentDocument {where})"
-        ).format(fields=", ".join(select_list), where=where)
+        return ("SELECT {fields} " "FROM ContentDocumentLink " "WHERE {where}").format(
+            fields=", ".join(select_list), where=" AND ".join(where)
+        )
 
     def download_content_document_link_list(
         self,
@@ -187,6 +188,8 @@ class Salesforce:
                     date=self._archivist_obj.modified_date_gt.strftime("%Y-%m-%dT%H:%M:%SZ")
                 )
             )
+        if self._archivist_obj.extra_soql_condition is not None:
+            where_conditions.append(self._archivist_obj.extra_soql_condition)
         where = ""
         if len(where_conditions):
             where = "WHERE {}".format(" AND ".join(where_conditions))

@@ -73,6 +73,14 @@ objects:
     #        Check project readme file for more details.
     dir_name_field: LinkedEntity.Username
 
+    # Purpose: Use value of this field as and extra condition in SOQL query when fetching objects
+    # Required: NO
+    # Default: None
+    # Notes: In contrary to `modified_date_*`, it filters objects and not files attached to them.
+    #        It can filter objects by any field of the object that is allowed by Salesforce.
+    extra_soql_condition: "MyCustomField__c = 'MyValue'"
+
+
   # Example 1: Process ContentDocument objects attached to `Account` object, older than datetime
   Account:
     modified_date_lt: 2023-08-01T00:00:00Z
