@@ -73,7 +73,7 @@ objects:
     #        Check project readme file for more details.
     dir_name_field: LinkedEntity.Username
 
-    # Purpose: Use value of this field as and extra condition in SOQL query when fetching objects
+    # Purpose: Use value of this field as an extra condition in SOQL query when fetching objects
     # Required: NO
     # Default: None
     # Notes: In contrary to `modified_date_*`, it filters objects and not files attached to them.
