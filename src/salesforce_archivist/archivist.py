@@ -25,6 +25,7 @@ class ArchivistObject(BaseModel):
     modified_date_lt: Optional[datetime.datetime] = None
     modified_date_gt: Optional[datetime.datetime] = None
     dir_name_field: Optional[str] = None
+    extra_soql_condition: Optional[str] = None
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, type(self)):

@@ -15,7 +15,7 @@ from salesforce_archivist.salesforce.validation import ValidationStats, Validate
 
 
 @pytest.mark.parametrize(
-    "data_dir, obj_type, modified_date_lt, modified_date_gt, dir_name_field",
+    "data_dir, obj_type, modified_date_lt, modified_date_gt, dir_name_field, extra_soql_condition",
     [
         (
             "/fake/dir",
@@ -23,6 +23,7 @@ from salesforce_archivist.salesforce.validation import ValidationStats, Validate
             datetime.datetime(year=2023, day=1, month=1),
             datetime.datetime(year=2024, day=1, month=1),
             "DirFieldName",
+            "Shipment_Status__c = 'SHIPMENT COMPLETED' OR Shipment_Status__c = 'CANCELLED'",
         ),
         (
             "/fake/dir",
@@ -30,16 +31,20 @@ from salesforce_archivist.salesforce.validation import ValidationStats, Validate
             None,
             None,
             None,
+            None,
         ),
     ],
 )
-def test_archivist_object_props(data_dir, obj_type, modified_date_lt, modified_date_gt, dir_name_field):
+def test_archivist_object_props(
+    data_dir, obj_type, modified_date_lt, modified_date_gt, dir_name_field, extra_soql_condition
+):
     archivist_obj = ArchivistObject(
         data_dir=data_dir,
         obj_type=obj_type,
         modified_date_lt=modified_date_lt,
         modified_date_gt=modified_date_gt,
         dir_name_field=dir_name_field,
+        extra_soql_condition=extra_soql_condition,
     )
     assert (
         archivist_obj.data_dir,
@@ -48,16 +53,26 @@ def test_archivist_object_props(data_dir, obj_type, modified_date_lt, modified_d
         archivist_obj.modified_date_gt,
         archivist_obj.dir_name_field,
         archivist_obj.obj_dir,
-    ) == (data_dir, obj_type, modified_date_lt, modified_date_gt, dir_name_field, os.path.join(data_dir, obj_type))
+        archivist_obj.extra_soql_condition,
+    ) == (
+        data_dir,
+        obj_type,
+        modified_date_lt,
+        modified_date_gt,
+        dir_name_field,
+        os.path.join(data_dir, obj_type),
+        extra_soql_condition,
+    )
 
 
-def test_archivist_object_quality():
+def test_archivist_object_equality():
     archivist_obj = ArchivistObject(
         data_dir="data/dir",
         obj_type="User",
         modified_date_lt=None,
         modified_date_gt=datetime.datetime(year=2024, month=1, day=1),
         dir_name_field=None,
+        extra_soql_condition=None,
     )
     archivist_obj_equal = ArchivistObject(
         data_dir="data/dir",
@@ -65,6 +80,7 @@ def test_archivist_object_quality():
         modified_date_lt=None,
         modified_date_gt=datetime.datetime(year=2024, month=1, day=1),
         dir_name_field=None,
+        extra_soql_condition=None,
     )
     archivist_obj_same_different = ArchivistObject(
         data_dir="data/dir2",
@@ -72,6 +88,7 @@ def test_archivist_object_quality():
         modified_date_lt=None,
         modified_date_gt=datetime.datetime(year=2024, month=1, day=1),
         dir_name_field=None,
+        extra_soql_condition=None,
     )
     assert archivist_obj == archivist_obj_equal
     assert archivist_obj != archivist_obj_same_different
@@ -114,6 +131,7 @@ objects:
     modified_date_gt: 2017-01-01T00:00:00Z
     modified_date_lt: 2023-08-01T00:00:00Z
     dir_name_field: LinkedEntity.Username
+    extra_soql_condition: "Shipment_Status__c = 'SHIPMENT COMPLETED' OR Shipment_Status__c = 'CANCELLED'"
 """,
             False,
         ),
@@ -180,6 +198,7 @@ def test_archivist_config_props():
                 modified_date_gt: 2017-01-01T00:00:00Z
                 modified_date_lt: 2023-08-01T00:00:00Z
                 dir_name_field: LinkedEntity.Username
+                extra_soql_condition: "MyField__c = 'value'"
               Booking__c: {{}}
             """
         ).format(data_dir=tmp_dir)
@@ -200,6 +219,7 @@ def test_archivist_config_props():
         assert archivist_object.data_dir == config.data_dir
         assert archivist_object.obj_dir == os.path.join(config.data_dir, archivist_object.obj_type)
         assert archivist_object.dir_name_field == "LinkedEntity.Username"
+        assert archivist_object.extra_soql_condition == "MyField__c = 'value'"
         assert archivist_object.modified_date_gt == datetime.datetime(
             year=2017, month=1, day=1, tzinfo=datetime.timezone.utc
         )
@@ -213,6 +233,8 @@ def test_archivist_config_props():
         assert archivist_object_with_defaults.modified_date_lt == datetime.datetime(
             year=2012, month=1, day=1, tzinfo=datetime.timezone.utc
         )
+        assert archivist_object_with_defaults.dir_name_field is None
+        assert archivist_object_with_defaults.extra_soql_condition is None
 
 
 @patch.object(DownloadedList, "data_file_exist", side_effect=[False, False, True, True])
