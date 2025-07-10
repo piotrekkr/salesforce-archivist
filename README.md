@@ -211,6 +211,9 @@ This project can handle both `ContentDocument` and `Attachment` objects.
 ### Download
 
 Based on configuration, download process will work as follows:
+
+**ContentDocument objects:**
+
 1. If exists, load already downloaded files list (`{data_dir}/downloaded_versions.csv)`).
 2. For each object type defined in configuration:
    1. Load existing content document link list (`{data_dir}/{obj_type}/document_links.csv`) or download from
@@ -225,11 +228,24 @@ Based on configuration, download process will work as follows:
       3. If above is not the case then fetch file from Salesforce and update downloaded files list.
       4. Check API limits, and if needed, wait for usage to drop below threshold.
    5. Save downloaded files list on disk.
-3. When all object download is complete, show statistics.
+
+**Attachment objects:**
+
+1. If exists, load already downloaded attachment list (`{data_dir}/attachments.csv)`).
+2. Load existing attachments list or download from Salesforce with specified conditions
+3. For each file on list above:
+   1. Combine file path (`{data_dir}/Attachment/files/{parent_id}/{filename}`).
+   2. If file exist on the disk then update downloaded attachment list.
+   3. If above is not the case then fetch attachment from Salesforce and update downloaded attachment list.
+   4. Check API limits, and if needed, wait for usage to drop below threshold.
+4. Save downloaded attachment list on disk.
+
+When download process is complete, show statistics.
 
 ### Validation
 
-Based on configuration, validation process will work as follows:
+**ContentDocument objects:**
+
 1. If exists, load already validated files list (`{data_dir}/validated_versions.csv)`).
 2. For each object type defined in configuration:
    1. Load existing content document link list (`{data_dir}/{obj_type}/document_links.csv`) or download from
@@ -243,7 +259,19 @@ Based on configuration, validation process will work as follows:
       2. If file was not validated before, calculate checksum of disk file, update validated list, compare
          checksum and if needed mark file as invalid.
    5. Save validated files list on disk.
-3. When validation is complete, show statistics.
+
+**Attachment objects:**
+
+1. If exists, load already validated files list (`{data_dir}/validated_versions.csv)`).
+2. Load attachment files list to validate.
+3. For each file on list above:
+   1. If file does not exist on disk, or was already validated and filesize does not match with Salesforce,
+      then mark file as invalid.
+   2. If file was not validated before, calculate file size, update validated list, compare
+      size with Salesforce size, and if needed, mark file as invalid.
+4. Save validated files list on disk.
+
+When validation is complete, show statistics.
 
 ## HOWTOs
 
@@ -272,3 +300,4 @@ You can remove this file or selected lines from inside this file. This will trig
 - Add cli options to force re-download versions and document link lists
 - Add some example terraform and/or ansible to use for deploy to VM in cloud
 - Use proper logging
+- Switch to `uv`
