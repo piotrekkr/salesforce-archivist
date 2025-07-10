@@ -269,7 +269,7 @@ When download process is complete, show statistics.
       then mark file as invalid.
    2. If file was not validated before, calculate file size, update validated list, compare
       size with Salesforce size, and if needed, mark file as invalid.
-3. Save validated files list on disk.
+4. Save validated files list on disk.
 
 When validation is complete, show statistics.
 
