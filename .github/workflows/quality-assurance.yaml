@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality-assurance:
-    name: Check Code Quality
+  image-build:
+    name: Check Image Build
     timeout-minutes: 10
     runs-on: ubuntu-22.04
     env:
@@ -39,10 +39,8 @@ jobs:
 
       - name: Build image
         uses: docker/build-push-action@v5
-        id: build-and-push
         with:
           context: .
-          target: ci
           build-args: |
             ARCHIVIST_UID=${{ steps.user-id.outputs.gha_uid }}
             ARCHIVIST_GID=${{ steps.user-id.outputs.gha_gid }}
@@ -51,16 +49,33 @@ jobs:
           tags: ${{ env.CI_IMAGE_TAG }}
           cache-from: type=gha,scope=archivist
           cache-to: type=gha,mode=max,scope=archivist
-          load: true
+          load: false
+
+  code-quality:
+    name: Check Code Quality
+    timeout-minutes: 10
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          show-progress: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dev and test dependencies
+        run: uv sync
 
       - name: Check code formatting
-        run: docker run ${{ env.CI_IMAGE_TAG }} poe format-check
+        run: uv run poe format-check
 
       - name: Check linting
-        run: docker run ${{ env.CI_IMAGE_TAG }} poe lint-check
+        run: uv run poe lint-check
 
       - name: Run static analysis
-        run: docker run ${{ env.CI_IMAGE_TAG }} poe mypy
+        run: uv run poe mypy
 
       - name: Run tests
-        run: docker run ${{ env.CI_IMAGE_TAG }} poe test
+        run: uv run poe test

@@ -15,13 +15,13 @@ max_api_usage_percent: 50
 # Purpose: Set default modified_date_gt date to use when not specified on object level
 # Required: NO
 # Default: None
-# Notes: Must be valid datetime recognized by yaml parser
+# Notes: Must be valid datetime recognized by YAML parser
 modified_date_gt: 2011-01-01T00:00:00Z
 
 # Purpose: Set default modified_date_lt date to use when not specified on object level
 # Required: NO
 # Default: None
-# Notes: Must be valid datetime recognized by yaml parser
+# Notes: Must be valid datetime recognized by YAML parser
 modified_date_lt: 2011-01-01T00:00:00Z
 
 # Purpose: Salesforce authentication configuration
@@ -50,19 +50,19 @@ auth:
 
 # Purpose: Map of Salesforce objects to process.
 # Required: YES
-# Notes: Key is an object name, values is configuration map.
+# Notes: Key is an object name, values is a configuration map.
 objects:
   User:
     # Purpose: Process only ContentDocument objects attached that were modified after datetime
     # Required: NO
     # Default: None
-    # Notes: Must be valid datetime recognized by yaml parser
+    # Notes: Must be valid datetime recognized by YAML parser
     modified_date_gt: 2017-01-01T00:00:00Z
 
     # Purpose: Process only ContentDocument objects attached that were modified before datetime
     # Required: NO
     # Default: None
-    # Notes: Must be valid datetime recognized by yaml parser
+    # Notes: Must be valid datetime recognized by YAML parser
     modified_date_lt: 2023-08-01T00:00:00Z
 
 
@@ -70,7 +70,7 @@ objects:
     # Required: NO
     # Default: ContentDocumentLink.LinkedEntityId
     # Notes: `LinkedEntity` lookup fields can be used but not every field of every linked entity can be used.
-    #        Check project readme file for more details.
+    #        Check a project readme file for more details.
     dir_name_field: LinkedEntity.Username
 
     # Purpose: Use value of this field as an extra condition in SOQL query when fetching objects

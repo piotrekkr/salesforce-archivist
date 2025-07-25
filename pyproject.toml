@@ -1,33 +1,38 @@
-[tool.poetry]
+[project]
 name = "salesforce-archivist"
 version = "0.1.0"
 description = "Salesforce files archiving tool"
-authors = ["piotrekkr <piotrekkr@users.noreply.github.com>"]
+authors = [
+  {name = "piotrekkr", email = "piotrekkr@users.noreply.github.com"},
+]
 readme = "README.md"
-packages = [
-  { include = "salesforce_archivist", from = "src" },
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.2.1",
+    "humanize>=4.12.3",
+    "pydantic>=2.11.7",
+    "python-dateutil>=2.9.0.post0",
+    "pyyaml>=6.0.2",
+    "simple-salesforce>=1.12.6",
+    "types-pyyaml>=6.0.12.20250516",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.11"
-simple-salesforce = "^1.12.5"
-PyYAML = "^6.0.1"
-click = "^8.1.7"
-python-dateutil = "^2.8.2"
-types-PyYAML = "^6.0.12.12"
-humanize = "^4.9.0"
-pydantic = "^2.7.0"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.group.dev.dependencies]
-pytest-mock = "^3.12.0"
-mypy = "^1.7.1"
-pytest = "^7.4.3"
-ruff = "^0.1.15"
-types-requests = "^2.31.0.20240106"
-poethepoet = "^0.24.4"
-
-[tool.poetry.scripts]
+[project.scripts]
 archivist = 'salesforce_archivist.cli:cli'
+
+[tool.uv]
+dev-dependencies = [
+    "mypy>=1.17.0",
+    "poethepoet>=0.36.0",
+    "pytest>=8.4.1",
+    "pytest-mock>=3.14.1",
+    "ruff>=0.12.5",
+    "types-requests>=2.32.4.20250611",
+]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -35,10 +40,6 @@ addopts = "-ra -q"
 testpaths = [
     "test",
 ]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
 files = "src"
@@ -54,7 +55,7 @@ warn_unused_ignores = true
 [tool.ruff]
 line-length = 120
 indent-width = 4
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
