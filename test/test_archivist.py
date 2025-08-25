@@ -95,17 +95,19 @@ def test_archivist_object_equality():
 
 
 def test_archivist_auth_props():
-    (instance_url, username, consumer_key, private_key) = (
+    (instance_url, domain, username, consumer_key, private_key) = (
         "http://exmple.com",
+        "example",
         "username",
         "consumer_key",
         "private_key",
     )
     auth = ArchivistAuth(
-        instance_url=instance_url, username=username, consumer_key=consumer_key, private_key=private_key
+        instance_url=instance_url, username=username, consumer_key=consumer_key, private_key=private_key, domain=domain
     )
-    assert (instance_url, username, consumer_key, private_key) == (
+    assert (instance_url, domain, username, consumer_key, private_key) == (
         auth.instance_url,
+        auth.domain,
         auth.username,
         auth.consumer_key,
         auth.private_key,
@@ -121,6 +123,7 @@ data_dir: {data_dir}
 max_api_usage_percent: 50
 auth:
   instance_url: https://login.salesforce.com/
+  domain: "login"
   username: test
   consumer_key: abc
   private_key: !!binary |
@@ -132,6 +135,21 @@ objects:
     modified_date_lt: 2023-08-01T00:00:00Z
     dir_name_field: LinkedEntity.Username
     extra_soql_condition: "Shipment_Status__c = 'SHIPMENT COMPLETED' OR Shipment_Status__c = 'CANCELLED'"
+""",
+            False,
+        ),
+        (
+            """\
+data_dir: {data_dir}
+max_api_usage_percent: 50
+auth:
+  username: test
+  consumer_key: abc
+  private_key: !!binary |
+    dGVzdAo=
+
+objects:
+  User: {}
 """,
             False,
         ),
@@ -188,6 +206,7 @@ def test_archivist_config_props():
             modified_date_lt: 2012-01-01T00:00:00Z
             auth:
               instance_url: https://login.salesforce.com/
+              domain: "login"
               username: test
               consumer_key: abc
               private_key: !!binary |
@@ -212,6 +231,7 @@ def test_archivist_config_props():
         assert isinstance(config.auth, ArchivistAuth)
         assert config.auth.username == "test"
         assert config.auth.instance_url == "https://login.salesforce.com/"
+        assert config.auth.domain == "login"
         assert config.auth.consumer_key == "abc"
         assert config.auth.private_key == "test\n"
         archivist_object = config.objects["User"]

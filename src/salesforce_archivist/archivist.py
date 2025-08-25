@@ -46,10 +46,11 @@ class ArchivistObject(BaseModel):
 
 
 class ArchivistAuth(BaseModel):
-    instance_url: Annotated[str, Field(min_length=1)]
     username: Annotated[str, Field(min_length=1)]
     consumer_key: Annotated[str, Field(min_length=1)]
     private_key: Annotated[str, Field(min_length=1)]
+    instance_url: Optional[Annotated[str, Field(min_length=1)]] = None
+    domain: Optional[Annotated[str, Field(min_length=1)]] = None
 
 
 class ArchivistConfig(BaseModel):

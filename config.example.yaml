@@ -28,9 +28,15 @@ modified_date_lt: 2011-01-01T00:00:00Z
 # Required: YES
 auth:
 
-  # Purpose: Salesforce instance login url
-  # Required: YES
+  # Purpose: Full Salesforce instance login url
+  # Required: NO
+  # Default: None (Simple Salesforce default will be used which is https://login.salesforce.com/)
   instance_url: https://login.salesforce.com/
+
+  # Purpose: Salesforce domain to use for login
+  # Required: NO
+  # Default: None (Simple Salesforce default will be used which is 'login')
+  domain: login
 
   # Purpose: Salesforce account username
   # Required: YES
