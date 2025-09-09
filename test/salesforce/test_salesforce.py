@@ -210,11 +210,7 @@ def test_download_content_document_link_list_queries(
             ),
             None,
             None,
-            (
-                "SELECT Id, ParentId, BodyLength, Name "
-                "FROM Attachment "
-                "WHERE LastModifiedDate < 2024-01-01T00:00:00Z"
-            ),
+            ("SELECT Id, ParentId, BodyLength, Name FROM Attachment WHERE LastModifiedDate < 2024-01-01T00:00:00Z"),
         ),
         (
             datetime(

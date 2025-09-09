@@ -60,7 +60,6 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           context: .
-          target: prod
           file: Dockerfile
           push: true
           tags: ${{ steps.params.outputs.tags }}

@@ -1,13 +1,15 @@
 from requests import Response
 from simple_salesforce import Salesforce as SimpleSFClient
 from simple_salesforce.api import Usage
+from simple_salesforce.bulk2 import QueryResult
+from simple_salesforce.util import PerAppUsage
 
 from salesforce_archivist.salesforce.attachment import Attachment
 from salesforce_archivist.salesforce.content_version import ContentVersion
 
 
 class ApiUsage:
-    def __init__(self, usage: Usage):
+    def __init__(self, usage: Usage | PerAppUsage):
         self._used: int = usage.used
         self._total: int = usage.total
 
@@ -28,11 +30,8 @@ class SalesforceApiClient:
     def __init__(self, sf_client: SimpleSFClient):
         self._simple_sf_client = sf_client
 
-    def bulk2(self, query: str, path: str, max_records: int) -> list[dict]:
-        result: list[dict] = self._simple_sf_client.bulk2.Account.download(
-            query=query, path=path, max_records=max_records
-        )
-        return result
+    def bulk2(self, query: str, path: str, max_records: int) -> list[QueryResult]:
+        return self._simple_sf_client.bulk2.Account.download(query=query, path=path, max_records=max_records)  # type: ignore[union-attr]
 
     def download_content_version(self, version: ContentVersion) -> Response:
         result: Response = self._simple_sf_client._call_salesforce(

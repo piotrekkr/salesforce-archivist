@@ -79,7 +79,7 @@ class Salesforce:
                 )
             )
 
-        return ("SELECT {fields} " "FROM ContentDocumentLink " "WHERE {where}").format(
+        return ("SELECT {fields} FROM ContentDocumentLink WHERE {where}").format(
             fields=", ".join(select_list), where=" AND ".join(where)
         )
 

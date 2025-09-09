@@ -33,6 +33,7 @@ def download(ctx: Context, validate: bool) -> None:
     config: ArchivistConfig = ctx.obj["config"]
     sf_client = SalesforceClient(
         instance_url=config.auth.instance_url,
+        domain=config.auth.domain,
         username=config.auth.username,
         consumer_key=config.auth.consumer_key,
         privatekey=config.auth.private_key,
@@ -54,6 +55,7 @@ def validate(ctx: Context) -> None:
     config: ArchivistConfig = ctx.obj["config"]
     sf_client = SalesforceClient(
         instance_url=config.auth.instance_url,
+        domain=config.auth.domain,
         username=config.auth.username,
         consumer_key=config.auth.consumer_key,
         privatekey=config.auth.private_key,
