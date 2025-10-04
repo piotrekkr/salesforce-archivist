@@ -250,11 +250,11 @@ class Salesforce:
         download_list: Union[DownloadContentVersionList, DownloadAttachmentList],
         validated_list: ValidatedList,
         max_workers: int | None = None,
+        remove_invalid: bool = False,
     ) -> ValidationStats:
         try:
             validator = DownloadValidator(
-                validated_list=validated_list,
-                max_workers=max_workers,
+                validated_list=validated_list, max_workers=max_workers, remove_invalid=remove_invalid
             )
             return validator.validate(download_list=download_list)
         finally:

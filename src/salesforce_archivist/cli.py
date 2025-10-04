@@ -28,8 +28,9 @@ def cli(ctx: Context) -> None:
 
 @cli.command()
 @click.option("--validate", is_flag=True, default=False, help="Trigger validation after download.")
+@click.option("--remove-invalid", is_flag=True, default=False, help="Remove invalid files after validation.")
 @click.pass_context
-def download(ctx: Context, validate: bool) -> None:
+def download(ctx: Context, validate: bool, remove_invalid: bool) -> None:
     config: ArchivistConfig = ctx.obj["config"]
     sf_client = SalesforceClient(
         instance_url=config.auth.instance_url,
@@ -45,13 +46,14 @@ def download(ctx: Context, validate: bool) -> None:
         max_api_usage_percent=config.max_api_usage_percent,
         max_workers=config.max_workers,
     )
-    if not archivist.download() or validate and not archivist.validate():
+    if not archivist.download() or validate and not archivist.validate(remove_invalid=remove_invalid):
         ctx.exit(code=1)
 
 
 @cli.command()
+@click.option("--remove-invalid", is_flag=True, default=False, help="Remove invalid files after validation.")
 @click.pass_context
-def validate(ctx: Context) -> None:
+def validate(ctx: Context, remove_invalid: bool) -> None:
     config: ArchivistConfig = ctx.obj["config"]
     sf_client = SalesforceClient(
         instance_url=config.auth.instance_url,
@@ -67,7 +69,7 @@ def validate(ctx: Context) -> None:
         max_api_usage_percent=config.max_api_usage_percent,
         max_workers=config.max_workers,
     )
-    if not archivist.validate():
+    if not archivist.validate(remove_invalid=remove_invalid):
         ctx.exit(code=1)
 
 

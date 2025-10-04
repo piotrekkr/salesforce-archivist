@@ -179,7 +179,11 @@ class Archivist:
         global_stats.combine(stats)
 
     def _validate_content_versions_download(
-        self, archivist_obj: ArchivistObject, validated_list: ValidatedList, global_stats: ValidationStats
+        self,
+        archivist_obj: ArchivistObject,
+        validated_list: ValidatedList,
+        global_stats: ValidationStats,
+        remove_invalid: bool = False,
     ) -> bool:
         salesforce = Salesforce(
             archivist_obj=archivist_obj,
@@ -199,12 +203,17 @@ class Archivist:
             download_list=download_list,
             validated_list=validated_list,
             max_workers=self._max_workers,
+            remove_invalid=remove_invalid,
         )
         global_stats.combine(stats)
         return stats.invalid == 0
 
     def _validate_attachments_download(
-        self, archivist_obj: ArchivistObject, validated_list: ValidatedList, global_stats: ValidationStats
+        self,
+        archivist_obj: ArchivistObject,
+        validated_list: ValidatedList,
+        global_stats: ValidationStats,
+        remove_invalid: bool = False,
     ) -> bool:
         salesforce = Salesforce(
             archivist_obj=archivist_obj,
@@ -220,20 +229,21 @@ class Archivist:
             download_list=download_list,
             validated_list=validated_list,
             max_workers=self._max_workers,
+            remove_invalid=remove_invalid,
         )
         global_stats.combine(stats)
         return stats.invalid == 0
 
-    def validate(self) -> bool:
+    def validate(self, remove_invalid: bool = False) -> bool:
         validated_list = ValidatedList(self._data_dir)
         if validated_list.data_file_exist():
             validated_list.load_data_from_file()
         global_stats = ValidationStats()
         for archivist_obj in self._objects.values():
             if archivist_obj.obj_type == "Attachment":
-                self._validate_attachments_download(archivist_obj, validated_list, global_stats)
+                self._validate_attachments_download(archivist_obj, validated_list, global_stats, remove_invalid)
             else:
-                self._validate_content_versions_download(archivist_obj, validated_list, global_stats)
+                self._validate_content_versions_download(archivist_obj, validated_list, global_stats, remove_invalid)
         status = "SUCCESS" if global_stats.invalid == 0 else "FAILED"
         color = "green" if global_stats.invalid == 0 else "red"
         click.secho(

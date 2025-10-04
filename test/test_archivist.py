@@ -346,7 +346,7 @@ def test_archivist_validate_will_load_lists_and_call_validate_method(
     assert load_version_list_mock.call_count == 2
     assert load_attachment_list_mock.call_count == 1
     assert validate_mock.mock_calls == [
-        call(download_list=ANY, validated_list=ANY, max_workers=max_workers),
-        call(download_list=ANY, validated_list=ANY, max_workers=max_workers),
-        call(download_list=ANY, validated_list=ANY, max_workers=max_workers),
+        call(download_list=ANY, validated_list=ANY, max_workers=max_workers, remove_invalid=False),
+        call(download_list=ANY, validated_list=ANY, max_workers=max_workers, remove_invalid=False),
+        call(download_list=ANY, validated_list=ANY, max_workers=max_workers, remove_invalid=False),
     ]

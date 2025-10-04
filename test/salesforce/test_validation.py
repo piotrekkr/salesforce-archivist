@@ -99,13 +99,22 @@ def test_validated_list_save():
             assert validated_file == loaded_list.get(path=validated_file.path)
 
 
-def test_validated_list_add_get_version():
+def test_validated_list_add_get():
     validated_list = ValidatedList(data_dir="/fake/dir")
     file_1 = ValidatedFile(checksum="checksum1", path="data/path/file_1.txt", content_size=None)
     file_2 = ValidatedFile(checksum=None, path="data/path/file_2.txt", content_size=10)
     validated_list.add(validated_file=file_1)
     assert validated_list.get(path=file_1.path) == file_1
     assert validated_list.get(path=file_2.path) is None
+
+
+def test_validated_list_remove():
+    validated_list = ValidatedList(data_dir="/fake/dir")
+    file_1 = ValidatedFile(checksum="checksum1", path="data/path/file_1.txt", content_size=None)
+    validated_list.add(validated_file=file_1)
+    assert validated_list.remove(path=file_1.path)
+    assert not validated_list.remove(path="fake/path")
+    assert len(validated_list) == 0
 
 
 def test_validated_list_is_downloaded():
@@ -337,6 +346,38 @@ def test_download_validator_validate_object_will_calculate_checksum_and_check_ve
         validator = DownloadValidator(validated_list=validated_list)
         assert validator.validate_object(obj=version, download_path=download_path) == should_match
         assert len(validated_list) == 1
+
+
+@pytest.mark.parametrize(
+    "file_data, checksum, should_remove",
+    [
+        ("test", hashlib.md5("test".encode("utf-8")).hexdigest(), False),
+        ("test1", hashlib.md5("test".encode("utf-8")).hexdigest(), True),
+    ],
+)
+def test_download_validator_validate_object_will_remove_invalid_version_file_from_disk_and_validated_list(
+    file_data: str, checksum: str, should_remove
+):
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        archivist_obj = ArchivistObject(data_dir=tmp_dir, obj_type="User")
+        download_path = os.path.join(tmp_dir, "file.txt")
+        with open(download_path, "wb") as file:
+            file.write(file_data.encode("utf-8"))
+
+        version = ContentVersion(
+            version_id="VID1",
+            document_id="DID",
+            checksum=checksum,
+            extension="ext1",
+            title="version1",
+            version_number=1,
+            content_size=10,
+        )
+        validated_list = ValidatedList(data_dir=archivist_obj.obj_dir)
+        validator = DownloadValidator(validated_list=validated_list, remove_invalid=True)
+        validator.validate_object(obj=version, download_path=download_path)
+        assert os.path.exists(download_path) == (not should_remove)
+        assert len(validated_list) == (0 if should_remove else 1)
 
 
 @pytest.mark.parametrize(

@@ -78,6 +78,9 @@ class ValidatedList:
     def get(self, path: str) -> ValidatedFile | None:
         return self._data.get(path)
 
+    def remove(self, path: str) -> bool:
+        return self._data.pop(path, None) is not None
+
     @property
     def path(self) -> str:
         return self._path
@@ -122,11 +125,12 @@ class ValidationStats:
 
 
 class DownloadValidator:
-    def __init__(self, validated_list: ValidatedList, max_workers: int | None = None):
+    def __init__(self, validated_list: ValidatedList, max_workers: int | None = None, remove_invalid: bool = False):
         self._validated_list = validated_list
         self._stats = ValidationStats()
         self._lock = threading.Lock()
         self._max_workers = max_workers
+        self._remove_invalid = remove_invalid
 
     def _print_validated_msg(self, msg: str, invalid: bool = False) -> None:
         percent = self._stats.processed / self._stats.total * 100 if self._stats.total > 0 else 0.0
@@ -173,6 +177,9 @@ class DownloadValidator:
                 self._validated_list.add(
                     ValidatedFile(path=download_path, checksum=checksum, content_size=version.content_size)
                 )
+            if not valid and self._remove_invalid:
+                self._validated_list.remove(download_path)
+                os.remove(download_path)
         except Exception as e:
             msg = "[ KO ] {id} => Exception: {e}".format(id=version.id, e=e)
             valid = False

@@ -37,7 +37,8 @@ but has few shortcomings that can appear quite fast after using it with existing
 
 ## Tech stack
 
-Project is implemented in `Python 3.11` and is using `poetry` as package manager. Main libraries used:
+Project is implemented in `Python 3.11` and is using [`uv`](https://github.com/astral-sh/uv) as package and project manager.
+Main libraries used:
 - [`simple-salesforce`](https://github.com/simple-salesforce/simple-salesforce) - handling Salesforce API
 - [`click`](https://github.com/pallets/click) - working with CLI
 - [`PyYaml`](https://github.com/yaml/pyyaml/) - config parsing
@@ -224,9 +225,19 @@ When validation is complete, show statistics.
 
 ## HOWTOs
 
+### Download and validate with one command
+
+```shell
+docker run --interactive --tty \
+  --volume /path/to/data/directory:/archivist/data \
+  --volume /path/to/your.config.yaml:/archivist/config.yaml \
+  ghcr.io/piotrekkr/salesforce-archivist:latest \
+  download --validate
+```
+
 ### Re-download content version list and document link list
 
-You can remove CSV files from disk, and next download will download full lists again from Salesforce.
+You can remove CSV files from disk, and the next download will fetch full lists again from Salesforce.
 ```shell
 # for chosen type
 rm -rf {data_dir}/{object_type}/*.csv
@@ -239,6 +250,28 @@ rm -rf {data_dir}/*/*.csv
 
 Already calculated checksums for downloaded files are kept in `{data_dir}/validated_versions.csv`.
 You can remove this file or selected lines from inside this file. This will trigger full validation again.
+
+### How to remove invalid files and redownload them
+
+Validation can show that some checksum or size of downloaded files do not match with values from Salesforce.
+To remove them and download again, you can use `--remove-invalid` flag. This flag will remove invalid files from
+the validated files list and from disk.
+
+```shell
+# download validate and remove invalid in one command
+docker run --interactive --tty \
+  --volume /path/to/data/directory:/archivist/data \
+  --volume /path/to/your.config.yaml:/archivist/config.yaml \
+  ghcr.io/piotrekkr/salesforce-archivist:latest \
+  download --validate --remove-invalid
+
+# remove after validation
+docker run --interactive --tty \
+  --volume /path/to/data/directory:/archivist/data \
+  --volume /path/to/your.config.yaml:/archivist/config.yaml \
+  ghcr.io/piotrekkr/salesforce-archivist:latest \
+  validate --remove-invalid
+```
 
 ## Contributing
 
